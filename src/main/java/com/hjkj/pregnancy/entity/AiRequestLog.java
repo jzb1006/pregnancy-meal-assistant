@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 /**
  * AI请求日志实体
  * 记录所有AI请求的详细信息
- * 
+ *
  * @author Zhibin Jiang
  */
 @Data
@@ -98,4 +98,5 @@ public class AiRequestLog {
         }
     }
 }
+
 

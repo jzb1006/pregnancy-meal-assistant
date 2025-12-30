@@ -27,3 +27,4 @@ public interface UserService {
     UserStatusVO getUserStatus(String openId);
 }
 
+

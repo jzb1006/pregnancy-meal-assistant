@@ -70,3 +70,4 @@ public interface AiRequestLogRepository extends JpaRepository<AiRequestLog, Long
     List<AiRequestLog> findTop10ByOrderByCreatedAtDesc();
 }
 
+

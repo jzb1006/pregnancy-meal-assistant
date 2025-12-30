@@ -31,3 +31,4 @@ public interface UserProfileRepository extends JpaRepository<UserProfile, Long> 
     boolean existsByOpenId(String openId);
 }
 
+
