@@ -64,6 +64,24 @@ public class UserProfile {
     private CuisinePreference cuisinePreference;
 
     /**
+     * 过敏源 (部分逗号分隔)
+     */
+    @Column(name = "allergies")
+    private String allergies;
+
+    /**
+     * 忌口 (部分逗号分隔)
+     */
+    @Column(name = "dietary_restrictions")
+    private String dietaryRestrictions;
+
+    /**
+     * 饮食强偏好 (部分逗号分隔)
+     */
+    @Column(name = "preferences")
+    private String preferences;
+
+    /**
      * 创建时间
      */
     @Column(name = "created_at", updatable = false)
@@ -86,4 +104,3 @@ public class UserProfile {
         updatedAt = LocalDateTime.now();
     }
 }
-

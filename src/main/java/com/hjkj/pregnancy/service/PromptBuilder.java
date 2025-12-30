@@ -18,7 +18,7 @@ import java.util.List;
 public class PromptBuilder {
 
     private final StringBuilder prompt;
-    
+
     private PromptBuilder() {
         this.prompt = new StringBuilder(2048); // 预分配容量
     }
@@ -40,77 +40,85 @@ public class PromptBuilder {
      */
     public static String buildMealRecommendationPrompt(PromptContext context) {
         PromptBuilder builder = create();
-        
+
         String mealTypeCn = getMealTypeChinese(context.mealType);
         String bmiAdvice = BmiUtil.getDietAdvice(context.bmi);
-        
+
         // 系统角色和任务描述
         builder.appendLine("你是一位专业的孕期营养师，请为孕妇推荐一道%s菜谱。", mealTypeCn)
-               .appendLine();
-        
+                .appendLine();
+
         // 用户信息
         builder.appendLine("用户信息：")
-               .appendLine("- 当前孕周：第%d周", context.week)
-               .appendLine("- 孕期阶段：%s", context.stage)
-               .appendLine("- BMI分类：%s (%.1f)", context.bmiCategory, context.bmi)
-               .appendLine("- BMI饮食建议：%s", bmiAdvice)
-               .appendLine("- 当前年龄：%d岁", context.age)
-               .appendLine("- 年龄分组：%s", context.ageGroupLabel)
-               .appendLine("- 年龄营养建议：%s", context.ageAdvice)
-               .appendLine("- 年龄饮食关键词：%s", context.ageKeywords);
-        
+                .appendLine("- 当前孕周：第%d周", context.week)
+                .appendLine("- 孕期阶段：%s", context.stage)
+                .appendLine("- BMI分类：%s (%.1f)", context.bmiCategory, context.bmi)
+                .appendLine("- BMI饮食建议：%s", bmiAdvice)
+                .appendLine("- 当前年龄：%d岁", context.age)
+                .appendLine("- 年龄分组：%s", context.ageGroupLabel)
+                .appendLine("- 年龄营养建议：%s", context.ageAdvice)
+                .appendLine("- 年龄饮食关键词：%s", context.ageKeywords);
+
         // 饮食偏好
-        if (context.cuisinePreference != null && !context.cuisinePreference.isBlank() 
-            && !"无偏好".equals(context.cuisinePreference)) {
+        if (context.cuisinePreference != null && !context.cuisinePreference.isBlank()
+                && !"无偏好".equals(context.cuisinePreference)) {
             builder.appendLine()
-                   .appendLine("**饮食偏好：** 用户偏好%s风格菜品，请优先推荐相应菜系。", context.cuisinePreference);
+                    .appendLine("**饮食偏好：** 用户偏好%s风格菜品，请优先推荐相应菜系。", context.cuisinePreference);
         }
-        
+
+        // 精细化个人档案
+        if (context.allergies != null && !context.allergies.isBlank()) {
+            builder.appendLine()
+                    .appendLine("**绝对禁忌（过敏源）：** 严禁包含[%s]及其制品，这是安全底线！请务必仔细检查成分。", context.allergies);
+        }
+        if (context.dietaryRestrictions != null && !context.dietaryRestrictions.isBlank()) {
+            builder.appendLine()
+                    .appendLine("**忌口：** 请避免[%s]。", context.dietaryRestrictions);
+        }
+        if (context.preferences != null && !context.preferences.isBlank()) {
+            builder.appendLine()
+                    .appendLine("**用户强偏好：** 用户特别喜欢[%s]口味/食材，请优先考虑。", context.preferences);
+        }
+
+        // 用户反馈信息 (Dislike/Bored)
+        if (context.dislikedDishes != null && !context.dislikedDishes.isEmpty()) {
+            builder.appendLine()
+                    .appendLine("**用户负面反馈（请极力避免）：**");
+
+            for (com.hjkj.pregnancy.model.dto.DislikedDishDTO dish : context.dislikedDishes) {
+                String reasonStr = (dish.reason() != null && !dish.reason().isBlank()) ? ", 原因: " + dish.reason() : "";
+                builder.appendLine("- %s (%s%s)", dish.dishName(), dish.action(), reasonStr);
+            }
+            builder.appendLine("指令：分析以上反馈，避免推荐具有相似特征（口味、烹饪方式、食材）的菜品。");
+        }
+
         // 历史菜品信息
         if (context.recentDishNames != null && !context.recentDishNames.isEmpty()) {
             String avoidKeywords = extractKeywords(context.recentDishNames);
             builder.appendLine()
-                   .appendLine("**避免重复：** 用户最近看过：%s", avoidKeywords)
-                   .appendLine("**多样性要求：** 主食材、烹饪方式、配菜需完全不同，尝试新风味。");
+                    .appendLine("**避免重复：** 用户最近看过：%s", avoidKeywords)
+                    .appendLine("**多样性要求：** 主食材、烹饪方式、配菜需完全不同，尝试新风味。");
         }
-        
+
         builder.appendLine();
-        
+
         // 要求列表
-        builder.appendLine("要求：")
-               .appendLine("1. 菜品要符合孕妇营养需求，食材新鲜易得")
-               .appendLine("2. 烹饪时间控制在30分钟以内")
-               .appendLine("3. 必须标注食材安全等级（GREEN/YELLOW/RED）")
-               .appendLine("4. 提供详细的食材用量和烹饪步骤")
-               .appendLine("5. 包含准确的营养成分信息")
-               .appendLine("6. 给准爸爸安排一个帮忙的小任务")
-               .appendLine("7. 根据BMI调整菜品热量和营养配比")
-               .appendLine("8. **重要：根据年龄分组和营养建议优化菜品，年龄是核心考虑因素**")
-               .appendLine("   - 低龄孕妇：增加高钙、高蛋白、高铁食材")
-               .appendLine("   - 适龄孕妇：营养均衡，品类丰富")
-               .appendLine("   - 高龄孕妇：低GI、高纤维、控制热量")
-               .appendLine("   - 超高龄孕妇：低盐、低糖、易消化、抗氧化")
-               .appendLine("9. **创新性：每次推荐都要有创意，尝试不同的食材组合、烹饪技法和风味搭配**")
-               .appendLine("10. **多样性：优先推荐用户从未见过的菜品类型，给用户新鲜感**")
-               .appendLine()
-               .appendLine("请以JSON格式返回，包含以下字段：")
-               .appendLine("{")
-               .appendLine("  \"dish_name\": \"菜品名称\",")
-               .appendLine("  \"reason\": \"推荐理由（100字以内，需体现年龄因素）\",")
-               .appendLine("  \"tags\": [\"标签1\", \"标签2\"],")
-               .appendLine("  \"safety\": \"GREEN\",")
-               .appendLine("  \"cook_time\": \"15分钟\",")
-               .appendLine("  \"ingredients\": [\"食材1 用量\", \"食材2 用量\"],")
-               .appendLine("  \"steps\": [\"步骤1\", \"步骤2\"],")
-               .appendLine("  \"husband_task\": \"准爸爸的任务\",")
-               .appendLine("  \"nutrition\": {")
-               .appendLine("    \"calories\": 350,")
-               .appendLine("    \"protein\": 25.0,")
-               .appendLine("    \"fat\": 12.0,")
-               .appendLine("    \"carbohydrate\": 30.0")
-               .appendLine("  }")
-               .appendLine("}");
-        
+        builder.appendLine("要求：").appendLine("1. 菜品要符合孕妇营养需求，食材新鲜易得").appendLine("2. 烹饪时间控制在30分钟以内")
+                .appendLine("3. 必须标注食材安全等级（GREEN/YELLOW/RED）").appendLine("4. 提供详细的食材用量和烹饪步骤")
+                .appendLine("5. 包含准确的营养成分信息").appendLine("6. 给准爸爸安排一个帮忙的小任务").appendLine("7. 根据BMI调整菜品热量和营养配比")
+                .appendLine("8. **重要：根据年龄分组和营养建议优化菜品，年龄是核心考虑因素**").appendLine("   - 低龄孕妇：增加高钙、高蛋白、高铁食材")
+                .appendLine("   - 适龄孕妇：营养均衡，品类丰富").appendLine("   - 高龄孕妇：低GI、高纤维、控制热量")
+                .appendLine("   - 超高龄孕妇：低盐、低糖、易消化、抗氧化").appendLine("9. **创新性：每次推荐都要有创意，尝试不同的食材组合、烹饪技法和风味搭配**")
+                .appendLine("10. **多样性：优先推荐用户从未见过的菜品类型，给用户新鲜感**").appendLine().appendLine("请以JSON格式返回，包含以下字段：")
+                .appendLine("{").appendLine("  \"dish_name\": \"菜品名称\",")
+                .appendLine("  \"reason\": \"推荐理由（100字以内，需体现年龄因素）\",").appendLine("  \"tags\": [\"标签1\", \"标签2\"],")
+                .appendLine("  \"safety\": \"GREEN\",").appendLine("  \"cook_time\": \"15分钟\",")
+                .appendLine("  \"ingredients\": [\"食材1 用量\", \"食材2 用量\"],")
+                .appendLine("  \"steps\": [\"步骤1\", \"步骤2\"],").appendLine("  \"husband_task\": \"准爸爸的任务\",")
+                .appendLine("  \"nutrition\": {").appendLine("    \"calories\": 350,")
+                .appendLine("    \"protein\": 25.0,").appendLine("    \"fat\": 12.0,")
+                .appendLine("    \"carbohydrate\": 30.0").appendLine("  }").appendLine("}");
+
         return builder.build();
     }
 
@@ -151,12 +159,12 @@ public class PromptBuilder {
         }
 
         // 常见烹饪方式
-        String[] cookingMethods = {"清蒸", "红烧", "香煎", "爆炒", "炖", "煮", "烤", "煎", "炒", "焖"};
-        
+        String[] cookingMethods = { "清蒸", "红烧", "香煎", "爆炒", "炖", "煮", "烤", "煎", "炒", "焖" };
+
         // 常见食材
         String[] mainIngredients = {
-            "三文鱼", "鸡胸肉", "牛肉", "猪肉", "虾", "鱼", "豆腐", "鸡蛋",
-            "鸡", "羊肉", "鳕鱼", "排骨", "鸭肉"
+                "三文鱼", "鸡胸肉", "牛肉", "猪肉", "虾", "鱼", "豆腐", "鸡蛋",
+                "鸡", "羊肉", "鳕鱼", "排骨", "鸭肉"
         };
 
         StringBuilder keywords = new StringBuilder();
@@ -227,6 +235,9 @@ public class PromptBuilder {
         private final String ageKeywords;
         private final List<String> recentDishNames;
         private final String cuisinePreference;
+        private final String allergies;
+        private final String dietaryRestrictions;
+        private final String preferences;
+        private final List<com.hjkj.pregnancy.model.dto.DislikedDishDTO> dislikedDishes;
     }
 }
-

@@ -69,6 +69,11 @@ CREATE TABLE `user_profile` (
   `last_menstrual_period` DATE NOT NULL COMMENT '末次月经',
   `height` INT NOT NULL COMMENT '身高cm',
   `current_weight` DECIMAL(5,2) NOT NULL COMMENT '当前体重kg',
+  `birth_date` DATE NOT NULL COMMENT '出生日期',
+  `cuisine_preference` VARCHAR(30) COMMENT '饮食偏好',
+  `allergies` VARCHAR(255) COMMENT '过敏源',
+  `dietary_restrictions` VARCHAR(255) COMMENT '忌口',
+  `preferences` VARCHAR(255) COMMENT '饮食强偏好',
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -88,6 +93,17 @@ CREATE TABLE `user_history` (
   `user_id` BIGINT NOT NULL,
   `recipe_id` BIGINT NOT NULL,
   `viewed_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. 用户反馈表
+CREATE TABLE `user_feedback` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` BIGINT NOT NULL,
+  `recipe_id` BIGINT NOT NULL,
+  `action` VARCHAR(20) NOT NULL COMMENT 'LIKE, DISLIKE, BORED',
+  `reason` VARCHAR(255) COMMENT '反馈原因',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_user_recipe` (`user_id`, `recipe_id`)
 );
 
 ```

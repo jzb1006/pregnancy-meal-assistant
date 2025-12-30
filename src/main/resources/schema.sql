@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS `user_profile` (
   `current_weight` DECIMAL(5,2) NOT NULL COMMENT '当前体重(kg)',
   `birth_date` DATE NOT NULL COMMENT '出生日期',
   `cuisine_preference` VARCHAR(30) COMMENT '饮食偏好: CHINESE/WESTERN/JAPANESE_KOREAN/SOUTHEAST_ASIAN/VEGETARIAN/NO_PREFERENCE',
+  `allergies` VARCHAR(255) COMMENT '过敏源',
+  `dietary_restrictions` VARCHAR(255) COMMENT '忌口',
+  `preferences` VARCHAR(255) COMMENT '饮食强偏好',
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   INDEX `idx_open_id` (`open_id`)
@@ -67,4 +70,15 @@ CREATE TABLE IF NOT EXISTS `ai_request_log` (
   INDEX `idx_scenario` (`scenario`),
   INDEX `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI请求日志表';
+
+-- 5. 用户反馈表
+CREATE TABLE IF NOT EXISTS `user_feedback` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+  `recipe_id` BIGINT NOT NULL COMMENT '食谱ID',
+  `action` VARCHAR(20) NOT NULL COMMENT '反馈动作: LIKE, DISLIKE, BORED',
+  `reason` VARCHAR(255) COMMENT '反馈原因',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  INDEX `idx_user_recipe` (`user_id`, `recipe_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户反馈表';
 

@@ -20,40 +20,54 @@ public interface RecipeRepository extends JpaRepository<Recipe, Long> {
     /**
      * 智能匹配食谱（排除已浏览的食谱）
      * 
-     * @param bmiCategory BMI分类
-     * @param mealType 餐次类型
+     * @param bmiCategory   BMI分类
+     * @param mealType      餐次类型
      * @param pregnancyWeek 孕周
-     * @param excludeIds 排除的食谱ID列表
+     * @param excludeIds    排除的食谱ID列表
      * @return 匹配的食谱
      */
     @Query("""
-        SELECT r FROM Recipe r 
-        WHERE (r.bmiCategory = :bmiCategory OR r.bmiCategory = 'ALL')
-        AND r.mealType = :mealType
-        AND r.pregnancyWeek = :pregnancyWeek
-        AND r.id NOT IN :excludeIds
-        ORDER BY r.createdAt DESC
-        """)
+            SELECT r FROM Recipe r
+            WHERE (r.bmiCategory = :bmiCategory OR r.bmiCategory = 'ALL')
+            AND r.mealType = :mealType
+            AND r.pregnancyWeek = :pregnancyWeek
+            AND r.id NOT IN :excludeIds
+            ORDER BY r.createdAt DESC
+            """)
     Optional<Recipe> findSmartMatch(
-        @Param("bmiCategory") String bmiCategory,
-        @Param("mealType") String mealType,
-        @Param("pregnancyWeek") Integer pregnancyWeek,
-        @Param("excludeIds") List<Long> excludeIds
-    );
+            @Param("bmiCategory") String bmiCategory,
+            @Param("mealType") String mealType,
+            @Param("pregnancyWeek") Integer pregnancyWeek,
+            @Param("excludeIds") List<Long> excludeIds);
+
+    /**
+     * 随机获取降级食谱 (Fallback)
+     * 
+     * @param bmiCategory BMI分类
+     * @param mealType    餐次类型
+     * @return 随机食谱
+     */
+    @Query(value = """
+            SELECT * FROM recipe
+            WHERE (bmi_category = :bmiCategory OR bmi_category = 'ALL')
+            AND meal_type = :mealType
+            ORDER BY RAND()
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<Recipe> findRandomFallback(
+            @Param("bmiCategory") String bmiCategory,
+            @Param("mealType") String mealType);
 
     /**
      * 根据条件查询食谱列表
      * 
-     * @param bmiCategory BMI分类
-     * @param mealType 餐次类型
+     * @param bmiCategory   BMI分类
+     * @param mealType      餐次类型
      * @param pregnancyWeek 孕周
      * @return 食谱列表
      */
     List<Recipe> findByBmiCategoryAndMealTypeAndPregnancyWeek(
-        String bmiCategory, 
-        String mealType, 
-        Integer pregnancyWeek
-    );
+            String bmiCategory,
+            String mealType,
+            Integer pregnancyWeek);
 }
-
-
