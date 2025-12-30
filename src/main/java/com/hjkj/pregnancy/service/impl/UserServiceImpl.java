@@ -1,5 +1,6 @@
 package com.hjkj.pregnancy.service.impl;
 
+import com.hjkj.pregnancy.entity.CuisinePreference;
 import com.hjkj.pregnancy.entity.UserProfile;
 import com.hjkj.pregnancy.model.dto.UserProfileRequest;
 import com.hjkj.pregnancy.model.vo.UserStatusVO;
@@ -41,6 +42,17 @@ public class UserServiceImpl implements UserService {
         userProfile.setHeight(request.getHeight());
         userProfile.setCurrentWeight(request.getWeight());
         userProfile.setBirthDate(request.getBirthDate());
+        
+        // 更新饮食偏好（可选）
+        if (request.getCuisinePreference() != null && !request.getCuisinePreference().isBlank()) {
+            try {
+                CuisinePreference preference = CuisinePreference.valueOf(request.getCuisinePreference().toUpperCase());
+                userProfile.setCuisinePreference(preference);
+            } catch (IllegalArgumentException e) {
+                log.warn("无效的饮食偏好: {}", request.getCuisinePreference());
+                // 如果传入无效值，不更新此字段
+            }
+        }
         
         // 保存到数据库
         userProfileRepository.save(userProfile);

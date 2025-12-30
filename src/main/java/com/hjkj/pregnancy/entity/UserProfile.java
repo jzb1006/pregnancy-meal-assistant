@@ -57,6 +57,13 @@ public class UserProfile {
     private LocalDate birthDate;
 
     /**
+     * 饮食偏好（可选）
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cuisine_preference", length = 30)
+    private CuisinePreference cuisinePreference;
+
+    /**
      * 创建时间
      */
     @Column(name = "created_at", updatable = false)

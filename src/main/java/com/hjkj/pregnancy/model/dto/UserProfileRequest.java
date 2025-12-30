@@ -43,5 +43,9 @@ public class UserProfileRequest {
     @JsonFormat(pattern = "yyyy-MM-dd")
     @Schema(description = "出生日期", example = "1990-05-15")
     private LocalDate birthDate;
+
+    @Schema(description = "饮食偏好（可选）", example = "CHINESE", 
+            allowableValues = {"CHINESE", "WESTERN", "JAPANESE_KOREAN", "SOUTHEAST_ASIAN", "VEGETARIAN", "NO_PREFERENCE"})
+    private String cuisinePreference;
 }
 

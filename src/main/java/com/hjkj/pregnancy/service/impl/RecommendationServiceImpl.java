@@ -128,7 +128,7 @@ public class RecommendationServiceImpl implements RecommendationService {
      */
     private String buildPrompt(int week, String stage, String bmiCategory, double bmi, String mealType,
                                int age, String ageGroupLabel, String ageAdvice, String ageKeywords,
-                               List<String> recentDishNames) {
+                               List<String> recentDishNames, String cuisinePreference) {
         String mealTypeCn = switch (mealType) {
             case "BREAKFAST" -> "早餐";
             case "LUNCH" -> "午餐";
@@ -137,6 +137,15 @@ public class RecommendationServiceImpl implements RecommendationService {
         };
 
         String bmiAdvice = BmiUtil.getDietAdvice(bmi);
+
+        // 构建饮食偏好信息
+        String preferenceInfo = "";
+        if (cuisinePreference != null && !cuisinePreference.isBlank() && !"无偏好".equals(cuisinePreference)) {
+            preferenceInfo = String.format("""
+            
+            **饮食偏好：** 用户偏好%s风格菜品，请优先推荐相应菜系。
+            """, cuisinePreference);
+        }
 
         // 构建历史菜品信息 - 使用简洁格式减少token消耗
         String historyInfo = "";
@@ -161,7 +170,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             - 当前年龄：%d岁
             - 年龄分组：%s
             - 年龄营养建议：%s
-            - 年龄饮食关键词：%s%s
+            - 年龄饮食关键词：%s%s%s
             
             要求：
             1. 菜品要符合孕妇营养需求，食材新鲜易得
@@ -196,7 +205,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 "carbohydrate": 30.0
               }
             }
-            """, mealTypeCn, week, stage, bmiCategory, bmi, bmiAdvice, age, ageGroupLabel, ageAdvice, ageKeywords, historyInfo);
+            """, mealTypeCn, week, stage, bmiCategory, bmi, bmiAdvice, age, ageGroupLabel, ageAdvice, ageKeywords, preferenceInfo, historyInfo);
     }
 
     /**
@@ -345,8 +354,13 @@ public class RecommendationServiceImpl implements RecommendationService {
                 String ageAdvice = AgeUtil.getNutritionAdvice(age);
                 String ageKeywords = AgeUtil.getDietKeywords(age);
 
-                log.debug("用户状态: week={}, bmi={}, bmiCategory={}, stage={}, age={}, ageGroup={}",
-                    week, bmi, bmiCategory, stage, age, ageGroupLabel);
+                // 获取饮食偏好
+                String cuisinePreference = user.getCuisinePreference() != null 
+                    ? user.getCuisinePreference().getLabel() 
+                    : null;
+
+                log.debug("用户状态: week={}, bmi={}, bmiCategory={}, stage={}, age={}, ageGroup={}, cuisinePreference={}",
+                    week, bmi, bmiCategory, stage, age, ageGroupLabel, cuisinePreference);
 
                 // 3. 查史：获取最近看过的菜 ID 和名称
                 List<Long> viewedIds = historyService.getRecentRecipeIds(user.getId(), historyRecentCount);
@@ -378,7 +392,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                     // 5. 调 AI：构建 Prompt 并使用流式调用
                     log.debug("数据库中没有合适的食谱，调用AI流式生成新食谱");
                     String prompt = buildPrompt(week, stage, bmiCategory, bmi, mealType,
-                        age, ageGroupLabel, ageAdvice, ageKeywords, viewedDishNames);
+                        age, ageGroupLabel, ageAdvice, ageKeywords, viewedDishNames, cuisinePreference);
 
                     // 发送开始事件
                     emitter.send(SseEmitter.event()
