@@ -1,0 +1,91 @@
+spring:
+  application:
+    name: pregnancy-meal-assistant
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/pregnancy_meal?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.MySQLDialect
+    open-in-view: false
+
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+    default-property-inclusion: non_null
+  ai:
+    dashscope:
+      api-key: ${ALI_AI_KEY:your-api-key-here}
+      chat:
+        options:
+          model: qwen-plus
+          temperature: 0.7
+          max-tokens: 2000
+
+# Spring AI Alibaba DashScope Configuration
+
+# SpringDoc OpenAPI Configuration (原生 Swagger)
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  packages-to-scan: com.hjkj.pregnancy.controller
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+
+# Server Configuration
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+# Logging Configuration
+logging:
+  level:
+    com.hjkj.pregnancy: INFO
+    org.springframework.web: INFO
+    org.hibernate.SQL: INFO
+    org.hibernate.type.descriptor.sql.BasicBinder: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Application Custom Configuration
+pregnancy:
+  # BMI 分类阈值
+  bmi:
+    underweight: 18.5
+    normal: 24.0
+    overweight: 28.0
+  # 孕期阶段划分（周）
+  pregnancy-stage:
+    early: 12
+    middle: 28
+  # 历史记录配置
+  history:
+    recent-count: 20
+    # AI提示词中传递的历史菜品数量（减少token消耗）
+    ai-history-count: 5
+    # 是否在AI提示词中包含历史信息（如果担心token消耗，可设为false）
+    enable-history-in-prompt: true
+
