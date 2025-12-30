@@ -1,0 +1,252 @@
+###################
+# Maven
+###################
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+###################
+# IDE - IntelliJ IDEA
+###################
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
+atlassian-ide-plugin.xml
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+fabric.properties
+
+###################
+# IDE - Eclipse
+###################
+.metadata
+.classpath
+.project
+.settings/
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.loadpath
+.recommenders
+.externalToolBuilders/
+*.launch
+.factorypath
+.buildpath
+.target
+.tern-project
+.texlipse
+.springBeans
+.recommenders/
+
+###################
+# IDE - NetBeans
+###################
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+###################
+# IDE - VS Code
+###################
+.vscode/
+.code-workspace
+*.code-workspace
+
+###################
+# AI Tools
+###################
+.claude/
+.cursor/
+
+###################
+# Operating System
+###################
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+.nfs*
+
+###################
+# Logs
+###################
+logs/
+*.log
+*.log.*
+log/
+*.log.gz
+*.log.zip
+
+###################
+# Application Properties
+###################
+application-local.yml
+application-dev.yml
+application-prod.yml
+application-*.properties
+!application.properties
+!application.yml
+
+###################
+# Environment Variables
+###################
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+###################
+# Package Files
+###################
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+###################
+# Compiled Files
+###################
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+###################
+# Database
+###################
+*.db
+*.sqlite
+*.sqlite3
+*.h2.db
+*.mv.db
+*.trace.db
+
+###################
+# Node.js (if using frontend)
+###################
+node_modules/
+npm-cache/
+.npm-cache/
+.npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+dist/
+build/
+
+###################
+# Test Coverage
+###################
+coverage/
+*.lcov
+.nyc_output
+jacoco.xml
+.coverage
+htmlcov/
+
+###################
+# Temporary Files
+###################
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+.temp/
+
+###################
+# Security & Sensitive
+###################
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+secrets/
+credentials/
+
+###################
+# Spring Boot
+###################
+HELP.md
+spring-boot-devtools.properties
+
+###################
+# Docker
+###################
+.dockerignore
+docker-compose.override.yml
+
+###################
+# Others
+###################
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
