@@ -2,6 +2,7 @@ package com.hjkj.pregnancy.service.impl;
 
 import com.hjkj.pregnancy.entity.CuisinePreference;
 import com.hjkj.pregnancy.entity.UserProfile;
+import com.hjkj.pregnancy.exception.UserNotFoundException;
 import com.hjkj.pregnancy.model.dto.UserProfileRequest;
 import com.hjkj.pregnancy.model.vo.UserStatusVO;
 import com.hjkj.pregnancy.repository.UserProfileRepository;
@@ -29,27 +30,27 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserStatusVO saveOrUpdateProfile(UserProfileRequest request) {
-        log.info("保存或更新用户档案: openId={}", request.getOpenId());
+        log.info("保存或更新用户档案: openId={}", request.openId());
         
         // 查询是否已存在
-        UserProfile userProfile = userProfileRepository.findByOpenId(request.getOpenId())
+        UserProfile userProfile = userProfileRepository.findByOpenId(request.openId())
             .orElse(UserProfile.builder()
-                .openId(request.getOpenId())
+                .openId(request.openId())
                 .build());
         
         // 更新用户信息
-        userProfile.setLastMenstrualPeriod(request.getLmp());
-        userProfile.setHeight(request.getHeight());
-        userProfile.setCurrentWeight(request.getWeight());
-        userProfile.setBirthDate(request.getBirthDate());
+        userProfile.setLastMenstrualPeriod(request.lmp());
+        userProfile.setHeight(request.height());
+        userProfile.setCurrentWeight(request.weight());
+        userProfile.setBirthDate(request.birthDate());
         
         // 更新饮食偏好（可选）
-        if (request.getCuisinePreference() != null && !request.getCuisinePreference().isBlank()) {
+        if (request.cuisinePreference() != null && !request.cuisinePreference().isBlank()) {
             try {
-                CuisinePreference preference = CuisinePreference.valueOf(request.getCuisinePreference().toUpperCase());
+                CuisinePreference preference = CuisinePreference.valueOf(request.cuisinePreference().toUpperCase());
                 userProfile.setCuisinePreference(preference);
             } catch (IllegalArgumentException e) {
-                log.warn("无效的饮食偏好: {}", request.getCuisinePreference());
+                log.warn("无效的饮食偏好: {}", request.cuisinePreference());
                 // 如果传入无效值，不更新此字段
             }
         }
@@ -66,7 +67,7 @@ public class UserServiceImpl implements UserService {
         log.info("获取用户状态: openId={}", openId);
         
         UserProfile userProfile = userProfileRepository.findByOpenId(openId)
-            .orElseThrow(() -> new RuntimeException("用户不存在，请先完善个人信息"));
+            .orElseThrow(() -> new UserNotFoundException(openId));
         
         return buildUserStatus(userProfile);
     }

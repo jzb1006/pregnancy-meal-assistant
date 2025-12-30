@@ -30,7 +30,7 @@ public class UserController {
     @Operation(summary = "初始化/更新用户档案", description = "用户首次登录或更新体重时调用")
     public Result<UserStatusVO> saveOrUpdateProfile(@Valid @RequestBody UserProfileRequest request) {
         try {
-            log.info("收到用户档案请求: {}", request.getOpenId());
+            log.info("收到用户档案请求: {}", request.openId());
             UserStatusVO status = userService.saveOrUpdateProfile(request);
             return Result.success(status);
         } catch (Exception e) {

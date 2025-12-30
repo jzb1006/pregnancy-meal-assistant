@@ -1,11 +1,21 @@
 package com.hjkj.pregnancy.utils;
 
+import com.hjkj.pregnancy.constants.PregnancyConstants;
+import com.hjkj.pregnancy.enums.BmiCategory;
+
 /**
  * BMI 计算工具类
  * 
  * @author Zhibin Jiang
  */
 public class BmiUtil {
+
+    /**
+     * 私有构造函数，防止实例化
+     */
+    private BmiUtil() {
+        throw new UnsupportedOperationException("Utility class");
+    }
 
     /**
      * 计算BMI指数
@@ -27,18 +37,20 @@ public class BmiUtil {
      * 获取BMI分类
      * 
      * @param bmi BMI指数
-     * @return BMI分类
+     * @return BMI分类字符串（为保持向后兼容）
      */
     public static String getBmiCategory(double bmi) {
-        if (bmi < 18.5) {
-            return "UNDERWEIGHT";
-        } else if (bmi < 24.0) {
-            return "NORMAL";
-        } else if (bmi < 28.0) {
-            return "OVERWEIGHT";
-        } else {
-            return "OBESE";
-        }
+        return BmiCategory.fromBmi(bmi).name();
+    }
+
+    /**
+     * 获取BMI分类枚举
+     * 
+     * @param bmi BMI指数
+     * @return BMI分类枚举
+     */
+    public static BmiCategory getBmiCategoryEnum(double bmi) {
+        return BmiCategory.fromBmi(bmi);
     }
 
     /**
@@ -48,14 +60,7 @@ public class BmiUtil {
      * @return BMI描述
      */
     public static String getBmiDescription(double bmi) {
-        String category = getBmiCategory(bmi);
-        return switch (category) {
-            case "UNDERWEIGHT" -> "偏瘦";
-            case "NORMAL" -> "标准";
-            case "OVERWEIGHT" -> "微胖";
-            case "OBESE" -> "肥胖";
-            default -> "未知";
-        };
+        return BmiCategory.fromBmi(bmi).getDescription();
     }
 
     /**
@@ -65,14 +70,7 @@ public class BmiUtil {
      * @return 饮食建议
      */
     public static String getDietAdvice(double bmi) {
-        String category = getBmiCategory(bmi);
-        return switch (category) {
-            case "UNDERWEIGHT" -> "建议适当增加营养，多吃优质蛋白和健康脂肪";
-            case "NORMAL" -> "保持均衡饮食，营养充足但不过量";
-            case "OVERWEIGHT" -> "注意控制总热量，选择低脂高蛋白食物";
-            case "OBESE" -> "需要控制体重增长，少油少糖，多吃蔬菜";
-            default -> "请咨询专业医生";
-        };
+        return BmiCategory.fromBmi(bmi).getDietAdvice();
     }
 
     /**

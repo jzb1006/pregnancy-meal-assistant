@@ -1,5 +1,7 @@
 package com.hjkj.pregnancy.utils;
 
+import com.hjkj.pregnancy.constants.PregnancyConstants;
+
 import java.time.LocalDate;
 import java.time.Period;
 
@@ -13,6 +15,13 @@ import java.time.Period;
  * @since 2024-12-30
  */
 public class AgeUtil {
+
+    /**
+     * 私有构造函数，防止实例化
+     */
+    private AgeUtil() {
+        throw new UnsupportedOperationException("Utility class");
+    }
 
     /**
      * 年龄分组枚举
@@ -79,15 +88,15 @@ public class AgeUtil {
      * @throws IllegalArgumentException 如果年龄小于0或大于100
      */
     public static AgeGroup getAgeGroup(int age) {
-        if (age < 0 || age > 100) {
+        if (age < PregnancyConstants.Age.MIN_AGE || age > PregnancyConstants.Age.MAX_AGE) {
             throw new IllegalArgumentException("年龄必须在0-100之间");
         }
 
-        if (age < 20) {
+        if (age < PregnancyConstants.Age.YOUNG_MAX_AGE) {
             return AgeGroup.YOUNG;
-        } else if (age < 35) {
+        } else if (age < PregnancyConstants.Age.NORMAL_MAX_AGE) {
             return AgeGroup.NORMAL;
-        } else if (age < 40) {
+        } else if (age < PregnancyConstants.Age.SENIOR_MAX_AGE) {
             return AgeGroup.SENIOR;
         } else {
             return AgeGroup.SUPER_SENIOR;

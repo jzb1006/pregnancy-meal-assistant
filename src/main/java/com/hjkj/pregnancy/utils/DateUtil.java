@@ -1,5 +1,8 @@
 package com.hjkj.pregnancy.utils;
 
+import com.hjkj.pregnancy.constants.PregnancyConstants;
+import com.hjkj.pregnancy.enums.PregnancyStage;
+
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
@@ -9,6 +12,13 @@ import java.time.temporal.ChronoUnit;
  * @author Zhibin Jiang
  */
 public class DateUtil {
+
+    /**
+     * 私有构造函数，防止实例化
+     */
+    private DateUtil() {
+        throw new UnsupportedOperationException("Utility class");
+    }
 
     /**
      * 根据末次月经计算当前孕周
@@ -28,7 +38,7 @@ public class DateUtil {
             throw new IllegalArgumentException("末次月经日期不能是未来时间");
         }
         
-        return (int) (days / 7);
+        return (int) (days / PregnancyConstants.PregnancyStage.DAYS_PER_WEEK);
     }
 
     /**
@@ -43,7 +53,7 @@ public class DateUtil {
         }
         
         // 预产期 = 末次月经 + 280天
-        return lmp.plusDays(280);
+        return lmp.plusDays(PregnancyConstants.PregnancyStage.DUE_DATE_DAYS);
     }
 
     /**
@@ -53,19 +63,17 @@ public class DateUtil {
      * @return 孕期阶段描述
      */
     public static String getPregnancyStage(int week) {
-        if (week < 0) {
-            throw new IllegalArgumentException("孕周不能为负数");
-        }
-        
-        if (week <= 12) {
-            return "孕早期";
-        } else if (week <= 28) {
-            return "孕中期";
-        } else if (week <= 40) {
-            return "孕晚期";
-        } else {
-            return "已过预产期";
-        }
+        return PregnancyStage.fromWeek(week).getLabel();
+    }
+
+    /**
+     * 根据孕周获取孕期阶段枚举
+     * 
+     * @param week 孕周
+     * @return 孕期阶段枚举
+     */
+    public static PregnancyStage getPregnancyStageEnum(int week) {
+        return PregnancyStage.fromWeek(week);
     }
 
     /**

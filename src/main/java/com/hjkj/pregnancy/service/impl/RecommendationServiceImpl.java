@@ -4,13 +4,17 @@ import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hjkj.pregnancy.constants.PregnancyConstants;
 import com.hjkj.pregnancy.entity.Recipe;
 import com.hjkj.pregnancy.entity.UserProfile;
+import com.hjkj.pregnancy.exception.AiServiceException;
+import com.hjkj.pregnancy.exception.UserNotFoundException;
 import com.hjkj.pregnancy.model.ai.AiMealRecord;
 import com.hjkj.pregnancy.model.vo.MealVO;
 import com.hjkj.pregnancy.repository.RecipeRepository;
 import com.hjkj.pregnancy.repository.UserProfileRepository;
 import com.hjkj.pregnancy.service.HistoryService;
+import com.hjkj.pregnancy.service.PromptBuilder;
 import com.hjkj.pregnancy.service.RecommendationService;
 import com.hjkj.pregnancy.utils.AgeUtil;
 import com.hjkj.pregnancy.advisor.AiAdvisorContext;
@@ -24,6 +28,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.converter.BeanOutputConverter;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -35,6 +40,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 /**
@@ -54,6 +60,9 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final ObjectMapper objectMapper;
     private final AiRequestAdvisor aiRequestAdvisor;
     private final AiLogService aiLogService;
+    
+    @Qualifier("aiStreamExecutor")
+    private final Executor aiStreamExecutor;
 
     @Value("${pregnancy.history.recent-count:20}")
     private int historyRecentCount;
@@ -71,141 +80,26 @@ public class RecommendationServiceImpl implements RecommendationService {
     private Double aiTemperature;
 
     /**
-     * 提取菜品关键词（主食材和烹饪方式）
-     * 例如："清蒸三文鱼配西兰花" -> "三文鱼、清蒸"
-     */
-    private String extractKeywords(List<String> dishNames) {
-        if (dishNames == null || dishNames.isEmpty()) {
-            return "";
-        }
-
-        // 常见烹饪方式
-        String[] cookingMethods = {"清蒸", "红烧", "香煎", "爆炒", "炖", "煮", "烤", "煎", "炒", "焖"};
-
-        // 常见食材（用于识别主食材）
-        String[] mainIngredients = {
-            "三文鱼", "鸡胸肉", "牛肉", "猪肉", "虾", "鱼", "豆腐", "鸡蛋",
-            "鸡", "羊肉", "鳕鱼", "排骨", "鸭肉"
-        };
-
-        StringBuilder keywords = new StringBuilder();
-        for (String dishName : dishNames) {
-            // 提取烹饪方式
-            for (String method : cookingMethods) {
-                if (dishName.contains(method)) {
-                    keywords.append(method).append("、");
-                    break;
-                }
-            }
-
-            // 提取主食材
-            for (String ingredient : mainIngredients) {
-                if (dishName.contains(ingredient)) {
-                    keywords.append(ingredient).append("、");
-                    break;
-                }
-            }
-        }
-
-        // 去除最后的顿号
-        String result = keywords.toString();
-        if (result.endsWith("、")) {
-            result = result.substring(0, result.length() - 1);
-        }
-
-        // 如果提取失败，直接返回前3个菜名的简化版
-        if (result.isEmpty()) {
-            return dishNames.stream()
-                .limit(3)
-                .collect(Collectors.joining("、"));
-        }
-
-        return result;
-    }
-
-    /**
-     * 构建AI提示词
+     * 构建AI提示词（使用PromptBuilder）
      */
     private String buildPrompt(int week, String stage, String bmiCategory, double bmi, String mealType,
                                int age, String ageGroupLabel, String ageAdvice, String ageKeywords,
                                List<String> recentDishNames, String cuisinePreference) {
-        String mealTypeCn = switch (mealType) {
-            case "BREAKFAST" -> "早餐";
-            case "LUNCH" -> "午餐";
-            case "DINNER" -> "晚餐";
-            default -> "餐食";
-        };
-
-        String bmiAdvice = BmiUtil.getDietAdvice(bmi);
-
-        // 构建饮食偏好信息
-        String preferenceInfo = "";
-        if (cuisinePreference != null && !cuisinePreference.isBlank() && !"无偏好".equals(cuisinePreference)) {
-            preferenceInfo = String.format("""
-            
-            **饮食偏好：** 用户偏好%s风格菜品，请优先推荐相应菜系。
-            """, cuisinePreference);
-        }
-
-        // 构建历史菜品信息 - 使用简洁格式减少token消耗
-        String historyInfo = "";
-        if (recentDishNames != null && !recentDishNames.isEmpty()) {
-            // 提取关键词：主食材和烹饪方式
-            String avoidKeywords = extractKeywords(recentDishNames);
-            historyInfo = String.format("""
-            
-            **避免重复：** 用户最近看过：%s
-            **多样性要求：** 主食材、烹饪方式、配菜需完全不同，尝试新风味。
-            """, avoidKeywords);
-        }
-
-        return String.format("""
-            你是一位专业的孕期营养师，请为孕妇推荐一道%s菜谱。
-            
-            用户信息：
-            - 当前孕周：第%d周
-            - 孕期阶段：%s
-            - BMI分类：%s (%.1f)
-            - BMI饮食建议：%s
-            - 当前年龄：%d岁
-            - 年龄分组：%s
-            - 年龄营养建议：%s
-            - 年龄饮食关键词：%s%s%s
-            
-            要求：
-            1. 菜品要符合孕妇营养需求，食材新鲜易得
-            2. 烹饪时间控制在30分钟以内
-            3. 必须标注食材安全等级（GREEN/YELLOW/RED）
-            4. 提供详细的食材用量和烹饪步骤
-            5. 包含准确的营养成分信息
-            6. 给准爸爸安排一个帮忙的小任务
-            7. 根据BMI调整菜品热量和营养配比
-            8. **重要：根据年龄分组和营养建议优化菜品，年龄是核心考虑因素**
-               - 低龄孕妇：增加高钙、高蛋白、高铁食材
-               - 适龄孕妇：营养均衡，品类丰富
-               - 高龄孕妇：低GI、高纤维、控制热量
-               - 超高龄孕妇：低盐、低糖、易消化、抗氧化
-            9. **创新性：每次推荐都要有创意，尝试不同的食材组合、烹饪技法和风味搭配**
-            10. **多样性：优先推荐用户从未见过的菜品类型，给用户新鲜感**
-            
-            请以JSON格式返回，包含以下字段：
-            {
-              "dish_name": "菜品名称",
-              "reason": "推荐理由（100字以内，需体现年龄因素）",
-              "tags": ["标签1", "标签2"],
-              "safety": "GREEN",
-              "cook_time": "15分钟",
-              "ingredients": ["食材1 用量", "食材2 用量"],
-              "steps": ["步骤1", "步骤2"],
-              "husband_task": "准爸爸的任务",
-              "nutrition": {
-                "calories": 350,
-                "protein": 25.0,
-                "fat": 12.0,
-                "carbohydrate": 30.0
-              }
-            }
-            """, mealTypeCn, week, stage, bmiCategory, bmi, bmiAdvice, age, ageGroupLabel, ageAdvice, ageKeywords, preferenceInfo, historyInfo);
+        PromptBuilder.PromptContext context = PromptBuilder.PromptContext.builder()
+            .week(week)
+            .stage(stage)
+            .bmiCategory(bmiCategory)
+            .bmi(bmi)
+            .mealType(mealType)
+            .age(age)
+            .ageGroupLabel(ageGroupLabel)
+            .ageAdvice(ageAdvice)
+            .ageKeywords(ageKeywords)
+            .recentDishNames(recentDishNames)
+            .cuisinePreference(cuisinePreference)
+            .build();
+        
+        return PromptBuilder.buildMealRecommendationPrompt(context);
     }
 
     /**
@@ -256,7 +150,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             // 错误拦截（已在 Advisor 中异步保存日志）
             aiRequestAdvisor.onError(e, AiRequestAdvisor.wrapContext(context));
 
-            throw new RuntimeException("AI服务暂时不可用，请稍后重试", e);
+            throw new AiServiceException("AI服务暂时不可用，请稍后重试", e);
         }
     }
 
@@ -284,7 +178,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
         } catch (JsonProcessingException e) {
             log.error("保存食谱失败", e);
-            throw new RuntimeException("保存食谱失败", e);
+            throw new AiServiceException("保存食谱失败", e);
         }
     }
 
@@ -320,7 +214,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
         } catch (JsonProcessingException e) {
             log.error("解析食谱JSON失败: recipeId={}", recipe.getId(), e);
-            throw new RuntimeException("解析食谱数据失败", e);
+            throw new AiServiceException("解析食谱数据失败", e);
         }
     }
 
@@ -332,14 +226,14 @@ public class RecommendationServiceImpl implements RecommendationService {
         log.debug("开始流式推荐: openId={}, mealType={}", openId, mealType);
 
         // 创建SSE发射器，超时时间5分钟
-        SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
+        SseEmitter emitter = new SseEmitter(PregnancyConstants.Timeout.SSE_TIMEOUT_MILLIS);
 
-        // 异步处理流式响应
+        // 使用自定义线程池异步处理流式响应
         CompletableFuture.runAsync(() -> {
             try {
                 // 1. 查人：获取用户档案
                 UserProfile user = userProfileRepository.findByOpenId(openId)
-                    .orElseThrow(() -> new RuntimeException("用户不存在，请先完善个人信息"));
+                    .orElseThrow(() -> new UserNotFoundException(openId));
 
                 // 2. 算命：计算当前状态
                 int week = DateUtil.calculatePregnancyWeek(user.getLastMenstrualPeriod());
@@ -414,7 +308,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                     log.error("发送错误消息失败", ioException);
                 }
             }
-        });
+        }, aiStreamExecutor);  // 使用自定义线程池
 
         // 设置超时和完成回调
         emitter.onTimeout(() -> {

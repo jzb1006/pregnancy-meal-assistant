@@ -4,12 +4,15 @@ import com.hjkj.pregnancy.model.vo.MealVO;
 import com.hjkj.pregnancy.service.HistoryService;
 import com.hjkj.pregnancy.service.RecommendationService;
 import com.hjkj.pregnancy.utils.Result;
+import com.hjkj.pregnancy.validator.ValidMealType;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -21,6 +24,7 @@ import java.util.List;
  * @author Zhibin Jiang
  */
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/v1/meal")
 @RequiredArgsConstructor
@@ -34,27 +38,16 @@ public class MealController {
     @Operation(summary = "流式推荐食谱", description = "使用SSE流式返回AI生成的食谱内容")
     public SseEmitter recommendStream(
             @Parameter(description = "用户唯一标识", required = true)
+            @NotBlank(message = "用户标识不能为空")
             @RequestParam String openId,
             
             @Parameter(description = "餐次类型：BREAKFAST/LUNCH/DINNER", required = true)
+            @ValidMealType
             @RequestParam String mealType) {
         
         log.info("收到流式推荐请求: openId={}, mealType={}", openId, mealType);
         
-        // 验证餐次类型
-        if (!isValidMealType(mealType)) {
-            SseEmitter emitter = new SseEmitter();
-            try {
-                emitter.send(SseEmitter.event()
-                    .name("error")
-                    .data("餐次类型无效，仅支持：BREAKFAST、LUNCH、DINNER"));
-                emitter.complete();
-            } catch (Exception e) {
-                log.error("发送错误消息失败", e);
-            }
-            return emitter;
-        }
-        
+        // 参数验证已由 @ValidMealType 注解处理，无需手动验证
         return recommendationService.recommendMealStream(openId, mealType.toUpperCase());
     }
 
@@ -71,16 +64,6 @@ public class MealController {
             log.error("获取浏览历史失败", e);
             return Result.error(e.getMessage());
         }
-    }
-
-    /**
-     * 验证餐次类型是否有效
-     */
-    private boolean isValidMealType(String mealType) {
-        return mealType != null && 
-               (mealType.equalsIgnoreCase("BREAKFAST") || 
-                mealType.equalsIgnoreCase("LUNCH") || 
-                mealType.equalsIgnoreCase("DINNER"));
     }
 }
 
