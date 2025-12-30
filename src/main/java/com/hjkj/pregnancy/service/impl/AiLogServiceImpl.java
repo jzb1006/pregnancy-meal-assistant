@@ -1,7 +1,7 @@
 package com.hjkj.pregnancy.service.impl;
 
+import com.hjkj.pregnancy.advisor.AiAdvisorContext;
 import com.hjkj.pregnancy.entity.AiRequestLog;
-import com.hjkj.pregnancy.interceptor.AiPromptInterceptor;
 import com.hjkj.pregnancy.repository.AiRequestLogRepository;
 import com.hjkj.pregnancy.service.AiLogService;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +26,7 @@ public class AiLogServiceImpl implements AiLogService {
 
     @Override
     @Transactional
-    public AiRequestLog saveLog(AiPromptInterceptor.InterceptorContext context) {
+    public AiRequestLog saveLog(AiAdvisorContext context) {
         try {
             AiRequestLog logEntity = AiRequestLog.builder()
                 .userId(context.getUserId())
@@ -39,7 +39,7 @@ public class AiLogServiceImpl implements AiLogService {
                 .duration(context.getDuration())
                 .isSuccess(context.getErrorMessage() == null)
                 .errorMessage(context.getErrorMessage())
-                .modelName("qwen-plus") // 可以从配置中获取
+                .modelName(context.getModelName() != null ? context.getModelName() : "unknown") // 使用真实的模型名称
                 .createdAt(context.getRequestTime())
                 .build();
 

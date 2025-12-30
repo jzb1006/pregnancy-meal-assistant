@@ -1,7 +1,7 @@
 package com.hjkj.pregnancy.service;
 
+import com.hjkj.pregnancy.advisor.AiAdvisorContext;
 import com.hjkj.pregnancy.entity.AiRequestLog;
-import com.hjkj.pregnancy.interceptor.AiPromptInterceptor;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,10 +16,10 @@ public interface AiLogService {
     /**
      * 保存AI请求日志
      * 
-     * @param context 拦截器上下文
+     * @param context Advisor 上下文
      * @return 保存的日志
      */
-    AiRequestLog saveLog(AiPromptInterceptor.InterceptorContext context);
+    AiRequestLog saveLog(AiAdvisorContext context);
 
     /**
      * 根据用户ID查询日志

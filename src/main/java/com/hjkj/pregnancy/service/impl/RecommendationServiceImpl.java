@@ -12,7 +12,8 @@ import com.hjkj.pregnancy.repository.UserProfileRepository;
 import com.hjkj.pregnancy.service.HistoryService;
 import com.hjkj.pregnancy.service.RecommendationService;
 import com.hjkj.pregnancy.utils.AgeUtil;
-import com.hjkj.pregnancy.interceptor.AiPromptInterceptor;
+import com.hjkj.pregnancy.advisor.AiAdvisorContext;
+import com.hjkj.pregnancy.advisor.AiRequestAdvisor;
 import com.hjkj.pregnancy.service.AiLogService;
 import com.hjkj.pregnancy.utils.BmiUtil;
 import com.hjkj.pregnancy.utils.DateUtil;
@@ -50,7 +51,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final HistoryService historyService;
     private final DashScopeChatModel chatModel;
     private final ObjectMapper objectMapper;
-    private final AiPromptInterceptor aiPromptInterceptor;
+    private final AiRequestAdvisor aiRequestAdvisor;
     private final AiLogService aiLogService;
 
     @Value("${pregnancy.history.recent-count:20}")
@@ -257,15 +258,11 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     /**
-     * 调用AI生成食谱（带拦截器）
+     * 调用AI生成食谱（使用 Advisor 拦截）
      */
     private AiMealRecord callAI(String prompt, String openId, String mealType) {
-        // 创建拦截器上下文
-        AiPromptInterceptor.InterceptorContext context = AiPromptInterceptor.InterceptorContext.builder()
-            .userId(openId)
-            .scenario("meal_recommend")
-            .mealType(mealType)
-            .build();
+        // 创建 Advisor 上下文
+        AiAdvisorContext context = AiAdvisorContext.of(openId, "meal_recommend", mealType);
 
         try {
             log.debug("调用AI生成食谱，Prompt长度: {}", prompt.length());
@@ -276,31 +273,28 @@ public class RecommendationServiceImpl implements RecommendationService {
             String fullPrompt = prompt + "\n\n" + format;
             Prompt aiPrompt = new Prompt(new UserMessage(fullPrompt));
 
+            // 包装 Advisor 参数
+            var advisorParams = AiRequestAdvisor.wrapContext(context);
+
             // 请求前拦截
-            aiPrompt = aiPromptInterceptor.beforeRequest(aiPrompt, context);
+            aiPrompt = aiRequestAdvisor.beforeRequest(aiPrompt, advisorParams);
 
             // 调用AI
             ChatResponse chatResponse = chatModel.call(aiPrompt);
             
             // 响应后拦截
-            chatResponse = aiPromptInterceptor.afterResponse(chatResponse, context);
+            chatResponse = aiRequestAdvisor.afterResponse(chatResponse, advisorParams);
 
             String response = chatResponse.getResult().getOutput().getText();
             log.debug("AI返回结果: {}", response);
-
-            // 保存日志（异步）
-            CompletableFuture.runAsync(() -> aiLogService.saveLog(context));
 
             return converter.convert(response);
 
         } catch (Exception e) {
             log.error("调用AI失败", e);
             
-            // 错误拦截
-            aiPromptInterceptor.onError(e, context);
-            
-            // 保存错误日志（异步）
-            CompletableFuture.runAsync(() -> aiLogService.saveLog(context));
+            // 错误拦截（已在 Advisor 中异步保存日志）
+            aiRequestAdvisor.onError(e, AiRequestAdvisor.wrapContext(context));
             
             throw new RuntimeException("AI服务暂时不可用，请稍后重试", e);
         }
@@ -471,16 +465,12 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     /**
-     * 流式调用AI生成食谱
+     * 流式调用AI生成食谱（使用 Advisor 拦截）
      */
     private void callAIStream(String prompt, SseEmitter emitter, Long userId, 
                              int week, String bmiCategory, String mealType, String openId) {
-        // 创建拦截器上下文
-        AiPromptInterceptor.InterceptorContext context = AiPromptInterceptor.InterceptorContext.builder()
-            .userId(openId)
-            .scenario("meal_recommend_stream")
-            .mealType(mealType)
-            .build();
+        // 创建 Advisor 上下文
+        AiAdvisorContext context = AiAdvisorContext.of(openId, "meal_recommend_stream", mealType);
 
         try {
             log.debug("开始流式调用AI，Prompt长度: {}", prompt.length());
@@ -491,16 +481,22 @@ public class RecommendationServiceImpl implements RecommendationService {
             String fullPrompt = prompt + "\n\n" + format;
             Prompt aiPrompt = new Prompt(new UserMessage(fullPrompt));
 
+            // 包装 Advisor 参数
+            var advisorParams = AiRequestAdvisor.wrapContext(context);
+
             // 请求前拦截
-            aiPrompt = aiPromptInterceptor.beforeRequest(aiPrompt, context);
+            aiPrompt = aiRequestAdvisor.beforeRequest(aiPrompt, advisorParams);
 
             // 使用stream方法获取流式响应
             Flux<ChatResponse> responseFlux = chatModel.stream(aiPrompt);
             
+            // 使用 Advisor 包装流式响应（自动处理拦截和日志）
+            Flux<ChatResponse> advisedFlux = aiRequestAdvisor.afterStreamResponse(responseFlux, advisorParams);
+            
             StringBuilder fullResponse = new StringBuilder();
             
             // 订阅流式响应
-            responseFlux.subscribe(
+            advisedFlux.subscribe(
                 chatResponse -> {
                     // 每次收到一个chunk，发送给客户端
                     String content = chatResponse.getResult().getOutput().getText();
@@ -516,14 +512,8 @@ public class RecommendationServiceImpl implements RecommendationService {
                     }
                 },
                 error -> {
-                    // 错误处理
+                    // 错误处理（Advisor 已自动记录日志）
                     log.error("AI流式响应错误", error);
-                    
-                    // 错误拦截
-                    aiPromptInterceptor.onError((Exception) error, context);
-                    
-                    // 保存错误日志（异步）
-                    CompletableFuture.runAsync(() -> aiLogService.saveLog(context));
                     
                     try {
                         emitter.send(SseEmitter.event()
@@ -535,20 +525,9 @@ public class RecommendationServiceImpl implements RecommendationService {
                     }
                 },
                 () -> {
-                    // 完成处理
+                    // 完成处理（Advisor 已自动记录日志）
                     try {
                         log.debug("AI流式响应完成，完整响应长度: {}", fullResponse.length());
-                        
-                        // 构造ChatResponse用于拦截器
-                        // 注意：这里简化处理，实际生产环境可能需要更完整的响应对象
-                        context.setResponseContent(fullResponse.toString());
-                        context.setResponseTime(java.time.LocalDateTime.now());
-                        
-                        // 响应后拦截（记录完整响应）
-                        aiPromptInterceptor.afterResponse(null, context);
-                        
-                        // 保存日志（异步）
-                        CompletableFuture.runAsync(() -> aiLogService.saveLog(context));
                         
                         // 解析完整响应
                         AiMealRecord aiOutput = converter.convert(fullResponse.toString());
@@ -571,11 +550,8 @@ public class RecommendationServiceImpl implements RecommendationService {
                     } catch (Exception e) {
                         log.error("处理AI响应失败", e);
                         
-                        // 错误拦截
-                        aiPromptInterceptor.onError(e, context);
-                        
-                        // 保存错误日志（异步）
-                        CompletableFuture.runAsync(() -> aiLogService.saveLog(context));
+                        // 错误拦截（Advisor 会自动记录日志）
+                        aiRequestAdvisor.onError(e, advisorParams);
                         
                         try {
                             emitter.send(SseEmitter.event()
@@ -592,11 +568,8 @@ public class RecommendationServiceImpl implements RecommendationService {
         } catch (Exception e) {
             log.error("流式调用AI失败", e);
             
-            // 错误拦截
-            aiPromptInterceptor.onError(e, context);
-            
-            // 保存错误日志（异步）
-            CompletableFuture.runAsync(() -> aiLogService.saveLog(context));
+            // 错误拦截（Advisor 会自动记录日志）
+            aiRequestAdvisor.onError(e, AiRequestAdvisor.wrapContext(context));
             
             try {
                 emitter.send(SseEmitter.event()
