@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.model.ModelOptionsUtils;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -81,6 +80,10 @@ public class AiRequestAdvisor {
                 .map(msg -> msg.getText())
                 .collect(Collectors.joining("\n"));
 
+        // 从 Prompt 的 Options 中提取模型名称
+        String modelName = extractModelNameFromPrompt(prompt);
+        context.setModelName(modelName);
+
         // 记录请求信息（DEBUG 级别）
         if (log.isDebugEnabled()) {
             log.debug("=".repeat(80));
@@ -89,6 +92,7 @@ public class AiRequestAdvisor {
             log.debug("用户标识: {}", context.getUserId());
             log.debug("业务场景: {}", context.getScenario());
             log.debug("餐次类型: {}", context.getMealType());
+            log.debug("模型名称: {}", modelName);
             log.debug("Prompt 长度: {} 字符", fullPrompt.length());
             log.debug("-".repeat(80));
             log.debug("完整 Prompt:\n{}", fullPrompt);
@@ -132,12 +136,6 @@ public class AiRequestAdvisor {
             responseContent = response.getResult().getOutput().getText();
         }
 
-        // 提取模型名称
-        String modelName = extractModelName(response);
-        if (modelName != null && context.getModelName() == null) {
-            context.setModelName(modelName);
-        }
-
         // 记录响应信息（DEBUG 级别）
         if (log.isDebugEnabled()) {
             log.debug("=".repeat(80));
@@ -145,7 +143,7 @@ public class AiRequestAdvisor {
             log.debug("=".repeat(80));
             log.debug("用户标识: {}", context.getUserId());
             log.debug("业务场景: {}", context.getScenario());
-            log.debug("模型名称: {}", modelName);
+            log.debug("模型名称: {}", context.getModelName());
             log.debug("耗时: {} ms", duration);
             log.debug("响应长度: {} 字符", responseContent.length());
             log.debug("Token 使用: {}", response != null ? response.getMetadata() : "N/A");
@@ -189,12 +187,6 @@ public class AiRequestAdvisor {
                     if (chatResponse.getResult() != null && chatResponse.getResult().getOutput() != null) {
                         String content = chatResponse.getResult().getOutput().getText();
                         fullResponse.append(content);
-                        
-                        // 提取模型名称（第一个 chunk 通常包含模型信息）
-                        if (context.getModelName() == null) {
-                            String modelName = extractModelName(chatResponse);
-                            context.setModelName(modelName);
-                        }
                         
                         if (log.isDebugEnabled()) {
                             log.debug("收到流式 chunk: {}", content);
@@ -295,29 +287,27 @@ public class AiRequestAdvisor {
     }
 
     /**
-     * 从 ChatResponse 中提取模型名称
+     * 从 Prompt 的 ChatOptions 中提取模型名称
      *
-     * @param response AI 响应
+     * @param prompt 请求的 Prompt
      * @return 模型名称，如果无法提取则返回 "unknown"
      */
-    private String extractModelName(ChatResponse response) {
-        if (response == null || response.getMetadata() == null) {
+    private String extractModelNameFromPrompt(Prompt prompt) {
+        if (prompt == null) {
             return "unknown";
         }
 
         try {
-            // 尝试从 metadata 中获取模型名称
-            var metadata = response.getMetadata();
-            
-            // DashScope 的模型名称通常在 metadata 中
-            if (metadata.getModel() != null) {
-                return metadata.getModel();
+            // 从 Prompt 的 Options 中获取模型名称
+            ChatOptions options = prompt.getOptions();
+            if (options != null && options.getModel() != null && !options.getModel().isEmpty()) {
+                return options.getModel();
             }
             
             // 如果没有模型信息，返回 unknown
             return "unknown";
         } catch (Exception e) {
-            log.warn("提取模型名称失败: {}", e.getMessage());
+            log.warn("从 Prompt 提取模型名称失败: {}", e.getMessage());
             return "unknown";
         }
     }

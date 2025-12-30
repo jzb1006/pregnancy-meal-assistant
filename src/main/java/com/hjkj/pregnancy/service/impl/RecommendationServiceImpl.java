@@ -1,6 +1,7 @@
 package com.hjkj.pregnancy.service.impl;
 
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
+import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hjkj.pregnancy.entity.Recipe;
@@ -62,6 +63,12 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     @Value("${pregnancy.history.enable-history-in-prompt:true}")
     private boolean enableHistoryInPrompt;
+
+    @Value("${spring.ai.dashscope.chat.options.model:qwen3-max}")
+    private String aiModel;
+
+    @Value("${spring.ai.dashscope.chat.options.temperature:0.7}")
+    private Double aiTemperature;
 
     @Override
     @Transactional
@@ -265,13 +272,20 @@ public class RecommendationServiceImpl implements RecommendationService {
         AiAdvisorContext context = AiAdvisorContext.of(openId, "meal_recommend", mealType);
 
         try {
-            log.debug("调用AI生成食谱，Prompt长度: {}", prompt.length());
+            log.debug("调用AI生成食谱，Prompt长度: {}, 模型: {}", prompt.length(), aiModel);
 
             BeanOutputConverter<AiMealRecord> converter = new BeanOutputConverter<>(AiMealRecord.class);
             String format = converter.getFormat();
 
             String fullPrompt = prompt + "\n\n" + format;
-            Prompt aiPrompt = new Prompt(new UserMessage(fullPrompt));
+            
+            // 构造 ChatOptions，显式指定模型
+            DashScopeChatOptions chatOptions = DashScopeChatOptions.builder()
+                    .model(aiModel)
+                    .temperature(aiTemperature)
+                    .build();
+            
+            Prompt aiPrompt = new Prompt(new UserMessage(fullPrompt), chatOptions);
 
             // 包装 Advisor 参数
             var advisorParams = AiRequestAdvisor.wrapContext(context);
@@ -279,7 +293,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             // 请求前拦截
             aiPrompt = aiRequestAdvisor.beforeRequest(aiPrompt, advisorParams);
 
-            // 调用AI
+            // 调用AI（会使用 Prompt 中的 ChatOptions）
             ChatResponse chatResponse = chatModel.call(aiPrompt);
             
             // 响应后拦截
@@ -473,13 +487,20 @@ public class RecommendationServiceImpl implements RecommendationService {
         AiAdvisorContext context = AiAdvisorContext.of(openId, "meal_recommend_stream", mealType);
 
         try {
-            log.debug("开始流式调用AI，Prompt长度: {}", prompt.length());
+            log.debug("开始流式调用AI，Prompt长度: {}, 模型: {}", prompt.length(), aiModel);
 
             BeanOutputConverter<AiMealRecord> converter = new BeanOutputConverter<>(AiMealRecord.class);
             String format = converter.getFormat();
 
             String fullPrompt = prompt + "\n\n" + format;
-            Prompt aiPrompt = new Prompt(new UserMessage(fullPrompt));
+            
+            // 构造 ChatOptions，显式指定模型
+            DashScopeChatOptions chatOptions = DashScopeChatOptions.builder()
+                    .model(aiModel)
+                    .temperature(aiTemperature)
+                    .build();
+            
+            Prompt aiPrompt = new Prompt(new UserMessage(fullPrompt), chatOptions);
 
             // 包装 Advisor 参数
             var advisorParams = AiRequestAdvisor.wrapContext(context);
@@ -487,7 +508,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             // 请求前拦截
             aiPrompt = aiRequestAdvisor.beforeRequest(aiPrompt, advisorParams);
 
-            // 使用stream方法获取流式响应
+            // 使用stream方法获取流式响应（会使用 Prompt 中的 ChatOptions）
             Flux<ChatResponse> responseFlux = chatModel.stream(aiPrompt);
             
             // 使用 Advisor 包装流式响应（自动处理拦截和日志）
