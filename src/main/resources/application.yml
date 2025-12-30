@@ -33,7 +33,7 @@ spring:
       api-key: ${ALI_AI_KEY:your-api-key-here}
       chat:
         options:
-          model: qwen-plus
+          model: qwen3-max
           temperature: 0.7
           max-tokens: 2000
 
