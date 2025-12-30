@@ -30,31 +30,6 @@ public class MealController {
     private final RecommendationService recommendationService;
     private final HistoryService historyService;
 
-    @GetMapping("/recommend")
-    @Operation(summary = "智能推荐食谱", description = "根据用户状态智能推荐合适的食谱（核心接口）")
-    public Result<MealVO> recommend(
-            @Parameter(description = "用户唯一标识", required = true)
-            @RequestParam String openId,
-            
-            @Parameter(description = "餐次类型：BREAKFAST/LUNCH/DINNER", required = true)
-            @RequestParam String mealType) {
-        try {
-            log.info("收到推荐请求: openId={}, mealType={}", openId, mealType);
-            
-            // 验证餐次类型
-            if (!isValidMealType(mealType)) {
-                return Result.validateError("餐次类型无效，仅支持：BREAKFAST、LUNCH、DINNER");
-            }
-            
-            MealVO meal = recommendationService.recommendMeal(openId, mealType.toUpperCase());
-            return Result.success(meal);
-            
-        } catch (Exception e) {
-            log.error("推荐食谱失败", e);
-            return Result.error(e.getMessage());
-        }
-    }
-
     @GetMapping(value = "/recommend/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(summary = "流式推荐食谱", description = "使用SSE流式返回AI生成的食谱内容")
     public SseEmitter recommendStream(

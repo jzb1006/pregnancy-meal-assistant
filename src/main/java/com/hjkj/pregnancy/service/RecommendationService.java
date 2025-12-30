@@ -11,15 +11,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public interface RecommendationService {
 
     /**
-     * 智能推荐食谱（核心接口）
-     * 
-     * @param openId 用户唯一标识
-     * @param mealType 餐次类型：BREAKFAST/LUNCH/DINNER
-     * @return 推荐的食谱
-     */
-    MealVO recommendMeal(String openId, String mealType);
-
-    /**
      * 流式推荐食谱（使用SSE）
      * 
      * @param openId 用户唯一标识
