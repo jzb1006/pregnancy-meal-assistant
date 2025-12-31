@@ -2,6 +2,7 @@ package com.hjkj.pregnancy.config;
 
 import com.hjkj.pregnancy.exception.AiServiceException;
 import com.hjkj.pregnancy.exception.BusinessException;
+import com.hjkj.pregnancy.exception.ErrorCode;
 import com.hjkj.pregnancy.exception.UserNotFoundException;
 import com.hjkj.pregnancy.exception.ValidationException;
 import com.hjkj.pregnancy.utils.Result;
@@ -73,14 +74,40 @@ public class GlobalExceptionHandler {
 
     /**
      * 处理参数校验异常
+     * <p>
+     * 针对末次月经日期（lmp）字段提供特殊处理：
+     * <ul>
+     *   <li>使用专用错误码 {@link ErrorCode#INVALID_LMP_DATE}</li>
+     *   <li>返回友好的错误消息，不拼接字段名前缀</li>
+     *   <li>便于前端进行针对性的错误提示和引导</li>
+     * </ul>
+     * 其他字段保持现有格式，确保向后兼容性。
+     * </p>
+     *
+     * @param e       方法参数验证异常
+     * @param request HTTP 请求
+     * @return 统一的错误响应
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<?> handleMethodArgumentNotValidException(MethodArgumentNotValidException e, HttpServletRequest request) {
+        // 特殊处理 lmp 字段错误（友好提示 + 专用错误码）
+        FieldError lmpError = e.getBindingResult().getFieldErrors().stream()
+            .filter(err -> "lmp".equals(err.getField()))
+            .findFirst()
+            .orElse(null);
+
+        if (lmpError != null) {
+            String message = lmpError.getDefaultMessage();
+            log.warn("末次月经日期验证失败 - 路径: {}, 错误: {}", request.getRequestURI(), message);
+            return Result.error(ErrorCode.INVALID_LMP_DATE.getCode(), message);
+        }
+
+        // 其他字段保持现有格式（兼容现有前端）
         String message = e.getBindingResult().getFieldErrors().stream()
             .map(error -> error.getField() + ": " + error.getDefaultMessage())
             .collect(Collectors.joining("; "));
-        
+
         log.warn("参数校验失败 - 路径: {}, 错误: {}", request.getRequestURI(), message);
         return Result.validateError(message);
     }
