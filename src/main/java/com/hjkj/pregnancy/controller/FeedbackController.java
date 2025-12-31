@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Tag(name = "用户反馈接口")
 @RestController
-@RequestMapping("/api/v1/feedback")
+@RequestMapping("/v1/feedback")
 @RequiredArgsConstructor
 public class FeedbackController {
 

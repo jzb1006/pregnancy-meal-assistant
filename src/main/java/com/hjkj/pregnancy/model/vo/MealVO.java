@@ -23,6 +23,15 @@ public class MealVO {
     @Schema(description = "食谱ID", example = "101")
     private Long id;
 
+    @Schema(description = "餐次类型", example = "LUNCH")
+    private String mealType;
+
+    @Schema(description = "用户反馈: LIKE/DISLIKE/BORED, null表示未反馈", example = "LIKE")
+    private String feedbackAction;
+
+    @Schema(description = "创建/推荐时间", example = "2025-12-30T10:00:00")
+    private String createTime;
+
     @Schema(description = "菜品名称", example = "彩椒炒牛肉粒")
     private String dishName;
 
@@ -69,5 +78,3 @@ public class MealVO {
         private Double carbohydrate;
     }
 }
-
-

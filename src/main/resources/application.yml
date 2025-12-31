@@ -62,7 +62,7 @@ server:
 # Logging Configuration
 logging:
   level:
-    com.hjkj.pregnancy: INFO
+    com.hjkj.pregnancy: DEBUG
     org.springframework.web: INFO
     org.hibernate.SQL: INFO
     org.hibernate.type.descriptor.sql.BasicBinder: INFO

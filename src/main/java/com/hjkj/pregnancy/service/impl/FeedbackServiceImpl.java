@@ -33,15 +33,39 @@ public class FeedbackServiceImpl implements FeedbackService {
         UserProfile user = userProfileRepository.findByOpenId(openId)
                 .orElseThrow(() -> new UserNotFoundException(openId));
 
-        UserFeedback feedback = UserFeedback.builder()
-                .userId(user.getId())
-                .recipeId(recipeId)
-                .action(action)
-                .reason(reason)
-                .build();
+        // 1. 获取该用户对该食谱的所有现有反馈
+        List<UserFeedback> existingFeedbacks = feedbackRepository.findByUserIdAndRecipeId(user.getId(), recipeId);
 
-        feedbackRepository.save(feedback);
-        log.info("收到用户反馈: userId={}, recipeId={}, action={}", user.getId(), recipeId, action);
+        // 2. 根据新动作处理冲突
+        if (action == FeedbackAction.LIKE) {
+            // 如果是喜欢，删除所有的 "不喜欢" 和 "吃腻了"
+            existingFeedbacks.stream()
+                    .filter(f -> f.getAction() == FeedbackAction.DISLIKE || f.getAction() == FeedbackAction.BORED)
+                    .forEach(feedbackRepository::delete);
+        } else {
+            // 如果是不喜欢或吃腻了，删除所有的 "喜欢"
+            existingFeedbacks.stream()
+                    .filter(f -> f.getAction() == FeedbackAction.LIKE)
+                    .forEach(feedbackRepository::delete);
+        }
+
+        // 3. 检查是否已经存在相同的反馈 (幂等性)
+        boolean exists = existingFeedbacks.stream()
+                .anyMatch(f -> f.getAction() == action);
+
+        if (!exists) {
+            UserFeedback feedback = UserFeedback.builder()
+                    .userId(user.getId())
+                    .recipeId(recipeId)
+                    .action(action)
+                    .reason(reason)
+                    .build();
+
+            feedbackRepository.save(feedback);
+            log.info("收到用户反馈: userId={}, recipeId={}, action={}", user.getId(), recipeId, action);
+        } else {
+            log.info("用户反馈已存在，跳过: userId={}, recipeId={}, action={}", user.getId(), recipeId, action);
+        }
     }
 
     @Override

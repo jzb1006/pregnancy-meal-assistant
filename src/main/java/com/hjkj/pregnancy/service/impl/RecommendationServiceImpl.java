@@ -152,6 +152,8 @@ public class RecommendationServiceImpl implements RecommendationService {
 
             return MealVO.builder()
                     .id(recipe.getId())
+                    .mealType(recipe.getMealType())
+                    .createTime(java.time.LocalDateTime.now().toString())
                     .dishName(aiRecord.dishName())
                     .reason(aiRecord.reason())
                     .tags(aiRecord.tags())
@@ -328,7 +330,9 @@ public class RecommendationServiceImpl implements RecommendationService {
             aiPrompt = aiRequestAdvisor.beforeRequest(aiPrompt, advisorParams);
 
             // 使用stream方法获取流式响应（会使用 Prompt 中的 ChatOptions）
-            Flux<ChatResponse> responseFlux = chatModel.stream(aiPrompt);
+            // 增加超时控制，防止AI服务无响应导致前端长连接挂起
+            Flux<ChatResponse> responseFlux = chatModel.stream(aiPrompt)
+                    .timeout(java.time.Duration.ofSeconds(15));
 
             // 使用 Advisor 包装流式响应（自动处理拦截和日志）
             Flux<ChatResponse> advisedFlux = aiRequestAdvisor.afterStreamResponse(responseFlux, advisorParams);
