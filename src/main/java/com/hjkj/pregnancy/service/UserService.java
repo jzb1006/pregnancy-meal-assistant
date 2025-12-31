@@ -1,6 +1,7 @@
 package com.hjkj.pregnancy.service;
 
 import com.hjkj.pregnancy.model.dto.UserProfileRequest;
+import com.hjkj.pregnancy.model.vo.UserProfileVO;
 import com.hjkj.pregnancy.model.vo.UserStatusVO;
 
 /**
@@ -25,6 +26,12 @@ public interface UserService {
      * @return 用户状态信息
      */
     UserStatusVO getUserStatus(String openId);
+
+    /**
+     * 获取用户完整档案
+     * 
+     * @param openId 用户唯一标识
+     * @return 用户档案信息
+     */
+    UserProfileVO getUserProfile(String openId);
 }
-
-

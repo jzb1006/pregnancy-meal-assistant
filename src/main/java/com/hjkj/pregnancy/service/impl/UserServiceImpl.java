@@ -4,6 +4,7 @@ import com.hjkj.pregnancy.entity.CuisinePreference;
 import com.hjkj.pregnancy.entity.UserProfile;
 import com.hjkj.pregnancy.exception.UserNotFoundException;
 import com.hjkj.pregnancy.model.dto.UserProfileRequest;
+import com.hjkj.pregnancy.model.vo.UserProfileVO;
 import com.hjkj.pregnancy.model.vo.UserStatusVO;
 import com.hjkj.pregnancy.repository.UserProfileRepository;
 import com.hjkj.pregnancy.service.UserService;
@@ -81,6 +82,30 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new UserNotFoundException(openId));
 
         return buildUserStatus(userProfile);
+    }
+
+    @Override
+    public UserProfileVO getUserProfile(String openId) {
+        log.info("获取用户档案: openId={}", openId);
+
+        UserProfile userProfile = userProfileRepository.findByOpenId(openId)
+                .orElseThrow(() -> new UserNotFoundException(openId));
+
+        return UserProfileVO.builder()
+                .openId(userProfile.getOpenId())
+                .lmp(userProfile.getLastMenstrualPeriod())
+                .height(userProfile.getHeight())
+                .weight(userProfile.getCurrentWeight())
+                .birthDate(userProfile.getBirthDate())
+                .cuisinePreference(
+                        userProfile.getCuisinePreference() != null ? userProfile.getCuisinePreference().name() : null)
+                .cuisinePreferenceLabel(
+                        userProfile.getCuisinePreference() != null ? userProfile.getCuisinePreference().getLabel()
+                                : null)
+                .allergies(userProfile.getAllergies())
+                .dietaryRestrictions(userProfile.getDietaryRestrictions())
+                .preferences(userProfile.getPreferences())
+                .build();
     }
 
     /**
