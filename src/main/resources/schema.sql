@@ -82,3 +82,20 @@ CREATE TABLE IF NOT EXISTS `user_feedback` (
   INDEX `idx_user_recipe` (`user_id`, `recipe_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户反馈表';
 
+-- 6. 每日鼓励语录表
+CREATE TABLE IF NOT EXISTS `daily_encouragement` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+  `open_id` VARCHAR(64) NOT NULL COMMENT '用户唯一标识（微信OpenID）',
+  `mood` VARCHAR(16) NOT NULL COMMENT '当日心情: HAPPY/TIRED/ANXIOUS/EXCITED/CALM',
+  `encouragement_text` VARCHAR(200) NOT NULL COMMENT '鼓励语录文本',
+  `baby_size` VARCHAR(32) NOT NULL COMMENT '宝宝状态描述（如"像个柠檬"）',
+  `week` INT NOT NULL COMMENT '孕周',
+  `generated_at` DATETIME NOT NULL COMMENT '生成时间',
+  `record_date` DATE NOT NULL COMMENT '记录日期（用于唯一索引和查询）',
+  `is_fallback` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否为降级文案',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  CONSTRAINT `uk_open_id_date` UNIQUE (`open_id`, `record_date`),
+  INDEX `idx_open_id` (`open_id`),
+  INDEX `idx_record_date` (`record_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='每日鼓励语录表';
+

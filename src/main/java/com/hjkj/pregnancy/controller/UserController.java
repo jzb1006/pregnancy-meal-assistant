@@ -1,9 +1,11 @@
 package com.hjkj.pregnancy.controller;
 
+import com.hjkj.pregnancy.enums.MoodType;
 import com.hjkj.pregnancy.model.dto.UserProfileRequest;
-
+import com.hjkj.pregnancy.model.vo.DailyEncouragementVO;
 import com.hjkj.pregnancy.model.vo.UserProfileVO;
 import com.hjkj.pregnancy.model.vo.UserStatusVO;
+import com.hjkj.pregnancy.service.DailyEncouragementService;
 import com.hjkj.pregnancy.service.UserService;
 import com.hjkj.pregnancy.utils.Result;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+    private final DailyEncouragementService dailyEncouragementService;
 
     @PostMapping("/profile")
     @Operation(summary = "初始化/更新用户档案", description = "用户首次登录或更新体重时调用")
@@ -65,6 +68,21 @@ public class UserController {
             return Result.success(profile);
         } catch (Exception e) {
             log.error("获取用户档案失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/daily-encouragement")
+    @Operation(summary = "获取每日鼓励语录", description = "获取宝宝视角的每日暖心鼓励，同一天内幂等返回")
+    public Result<DailyEncouragementVO> getDailyEncouragement(
+            @Parameter(description = "用户唯一标识", required = true) @RequestParam String openId,
+            @Parameter(description = "当前心情（可选，默认HAPPY）", required = false) @RequestParam(required = false) MoodType mood) {
+        try {
+            log.info("收到每日鼓励请求: openId={}, mood={}", openId, mood);
+            DailyEncouragementVO encouragement = dailyEncouragementService.getDailyEncouragement(openId, mood);
+            return Result.success(encouragement);
+        } catch (Exception e) {
+            log.error("获取每日鼓励失败", e);
             return Result.error(e.getMessage());
         }
     }
