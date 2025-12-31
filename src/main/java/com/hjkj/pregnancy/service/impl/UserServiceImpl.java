@@ -1,5 +1,6 @@
 package com.hjkj.pregnancy.service.impl;
 
+import com.hjkj.pregnancy.constants.PregnancyConstants;
 import com.hjkj.pregnancy.entity.CuisinePreference;
 import com.hjkj.pregnancy.entity.UserProfile;
 import com.hjkj.pregnancy.exception.UserNotFoundException;
@@ -16,6 +17,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+
 /**
  * 用户服务实现类
  * 
@@ -27,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserServiceImpl implements UserService {
 
     private final UserProfileRepository userProfileRepository;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -110,10 +116,35 @@ public class UserServiceImpl implements UserService {
 
     /**
      * 构建用户状态信息
+     * <p>
+     * 使用注入的 Clock 实例统一时间来源，确保时区一致性。
+     * 计算孕期天数（pregnancyDays）用于精确判断是否超预产期。
+     * </p>
+     * <p>
+     * 特殊处理：
+     * <ul>
+     *   <li>当 days < 0 时（未来 LMP），将 days 和 week 设为 0，避免负值异常</li>
+     *   <li>使用 PregnancyConstants 中定义的常量，避免魔法数字</li>
+     * </ul>
+     * </p>
+     *
+     * @param userProfile 用户档案实体
+     * @return 用户状态信息
      */
     private UserStatusVO buildUserStatus(UserProfile userProfile) {
-        // 计算孕周
-        int week = DateUtil.calculatePregnancyWeek(userProfile.getLastMenstrualPeriod());
+        // 使用统一的 Clock 获取今天的日期
+        LocalDate today = LocalDate.now(clock);
+
+        // 计算从末次月经到今天的累计天数
+        long days = ChronoUnit.DAYS.between(userProfile.getLastMenstrualPeriod(), today);
+
+        // 处理负数情况（未来 LMP），避免异常
+        if (days < 0) {
+            days = 0;
+        }
+
+        // 计算孕周（天数除以7），使用常量避免魔法数字
+        int week = (int) (days / PregnancyConstants.PregnancyStage.DAYS_PER_WEEK);
 
         // 计算BMI
         double bmi = BmiUtil.calculateBmi(userProfile.getHeight(), userProfile.getCurrentWeight());
@@ -137,6 +168,7 @@ public class UserServiceImpl implements UserService {
                 .stage(stage)
                 .age(age)
                 .tips(tips)
+                .pregnancyDays((int) days)  // 新增：累计天数用于超期判断
                 .build();
     }
 }

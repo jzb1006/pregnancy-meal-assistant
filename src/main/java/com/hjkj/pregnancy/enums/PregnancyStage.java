@@ -71,6 +71,14 @@ public enum PregnancyStage {
 
     /**
      * 根据孕周获取孕期阶段
+     * <p>
+     * 特殊处理：
+     * <ul>
+     *   <li>week = 0：返回孕早期（刚刚开始怀孕）</li>
+     *   <li>week < 0：抛出异常（不应该出现负数孕周）</li>
+     *   <li>未匹配任何阶段：返回已过预产期</li>
+     * </ul>
+     * </p>
      *
      * @param week 孕周
      * @return 孕期阶段枚举
@@ -79,6 +87,11 @@ public enum PregnancyStage {
     public static PregnancyStage fromWeek(int week) {
         if (week < 0) {
             throw new IllegalArgumentException("孕周不能为负数");
+        }
+
+        // 特殊处理：week = 0 时返回孕早期（刚刚开始怀孕）
+        if (week == 0) {
+            return EARLY;
         }
 
         for (PregnancyStage stage : values()) {
