@@ -201,6 +201,70 @@ public class PromptBuilder {
     }
 
     /**
+     * 构建每日推荐 Prompt
+     */
+    public static String buildDailyRecPrompt(DailyRecContext context) {
+        PromptBuilder builder = create();
+
+        // 1. System Prompt (Role)
+        builder.appendLine("# Role")
+                .appendLine("你是一位米其林星级孕期私厨，擅长根据季节、气候和孕妇体质定制食谱。")
+                .appendLine();
+
+        // 2. Objective
+        builder.appendLine("# Objective")
+                .appendLine("推荐一道适合“今天”(%s)的菜品。", context.dateStr)
+                .appendLine();
+
+        // 3. Logic Rules
+        builder.appendLine("# Logic Rules")
+                .appendLine("1. **时令感知:**")
+                .appendLine("   - 冬季/寒冷: 推荐温补、根茎类、炖菜、暖胃汤品。")
+                .appendLine("   - 夏季/炎热: 推荐清爽、开胃、蒸菜、凉拌(必须熟食)。")
+                .appendLine("   - 春秋: 推荐润燥、应季蔬菜(如春笋/莲藕)。")
+                .appendLine("2. **体重管理 (BMI):**")
+                .appendLine("   - 当前BMI: %.1f (%s)", context.bmi, context.bmiCategory)
+                .appendLine("   - 如果 Overweight/Obese: 严禁推荐高糖高油(红烧/糖醋/油炸)，必须推荐低脂高蛋白或高纤维。")
+                .appendLine("   - 如果 Underweight: 推荐营养密度高、适当增加优质脂肪的菜。")
+                .appendLine("3. **去重机制 (重要):**")
+                .appendLine("   - 严禁推荐“排除名单”中的菜品: %s", context.exclusions)
+                .appendLine("   - 严禁推荐与“排除名单”做法或主材极其相似的菜品。")
+                .appendLine("4. **安全底线:** 严禁生食、酒精、高汞海鲜。")
+                .appendLine();
+
+        // 4. Output Format
+        builder.appendLine("# Output Format")
+                .appendLine("请仅返回 JSON 格式，不要包含 Markdown 标记。结构如下：")
+                .appendLine("{")
+                .appendLine("  \"dish_name\": \"菜名\",")
+                .appendLine("  \"seasonal_reason\": \"结合【日期/节气】和【用户体质】的推荐理由 (例如: 今日大寒，这道萝卜牛腩能御寒...)\",")
+                .appendLine("  \"nutrition_tags\": [\"标签1\", \"标签2\"],")
+                .appendLine("  \"ingredients\": [\"食材1\", \"食材2\"],")
+                .appendLine("  \"cooking_tip\": \"一句话烹饪技巧\",")
+                .appendLine("  \"cook_time\": \"烹饪时间 (e.g. 20分钟)\",")
+                .appendLine("  \"steps\": [\"步骤1\", \"步骤2\", \"步骤3...\"],")
+                .appendLine("  \"husband_task\": \"给准爸爸分配的一个简单任务 (e.g. 帮忙洗菜)\",")
+                .appendLine("  \"nutrition\": {")
+                .appendLine("    \"calories\": 350,")
+                .appendLine("    \"protein\": 20.5,")
+                .appendLine("    \"fat\": 10.0,")
+                .appendLine("    \"carbohydrate\": 45.0")
+                .appendLine("  }")
+                .appendLine("}");
+
+        return builder.build();
+    }
+
+    @Getter
+    @Builder
+    public static class DailyRecContext {
+        private final String dateStr;
+        private final double bmi;
+        private final String bmiCategory;
+        private final String exclusions;
+    }
+
+    /**
      * 获取餐次类型的中文名称
      * <p>
      * 使用 Java 21 增强型 switch 表达式，支持模式匹配和空值处理

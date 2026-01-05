@@ -99,3 +99,15 @@ CREATE TABLE IF NOT EXISTS `daily_encouragement` (
   INDEX `idx_record_date` (`record_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='每日鼓励语录表';
 
+-- 7. 每日食谱推荐表 (NEW)
+CREATE TABLE IF NOT EXISTS `daily_recommendation` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` BIGINT NOT NULL,
+  `rec_date` DATE NOT NULL COMMENT '日期 (e.g. 2026-01-04)',
+  `week_num` INT NOT NULL COMMENT '生成时的孕周',
+  `dish_name` VARCHAR(100) NOT NULL,
+  `content_json` JSON NOT NULL COMMENT 'AI生成的完整菜谱',
+  `rejected_history` TEXT COMMENT '今日已拒绝列表(逗号分隔)，用于AI去重',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `uk_user_date` (`user_id`, `rec_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='每日食谱推荐表';
