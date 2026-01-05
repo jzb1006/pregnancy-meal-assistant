@@ -108,7 +108,7 @@ public class DailyRecommendationServiceImpl implements DailyRecommendationServic
 
         DashScopeChatOptions chatOptions = DashScopeChatOptions.builder()
                 .model("qwen-plus")
-                .temperature(0.7)
+                .temperature(1.1)
                 .build();
 
         Prompt prompt = new Prompt(new UserMessage(fullPrompt), chatOptions);

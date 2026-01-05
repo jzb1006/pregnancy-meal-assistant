@@ -1,5 +1,6 @@
 package com.hjkj.pregnancy.model.ai;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
@@ -13,14 +14,14 @@ import java.util.List;
  * @param cookingTip     烹饪贴士
  */
 public record AiDailyRecRecord(
-                @JsonProperty("dish_name") String dishName,
-                @JsonProperty("seasonal_reason") String seasonalReason,
-                @JsonProperty("nutrition_tags") List<String> nutritionTags,
+                @JsonProperty("dishName") @JsonAlias("dish_name") String dishName,
+                @JsonProperty("reason") @JsonAlias("seasonal_reason") String seasonalReason,
+                @JsonProperty("tags") @JsonAlias("nutrition_tags") List<String> nutritionTags,
                 @JsonProperty("ingredients") List<String> ingredients,
-                @JsonProperty("cooking_tip") String cookingTip,
-                @JsonProperty("cook_time") String cookTime,
+                @JsonProperty("cookingTip") @JsonAlias("cooking_tip") String cookingTip,
+                @JsonProperty("cookTime") @JsonAlias("cook_time") String cookTime,
                 @JsonProperty("steps") List<String> steps,
-                @JsonProperty("husband_task") String husbandTask,
+                @JsonProperty("husbandTask") @JsonAlias("husband_task") String husbandTask,
                 @JsonProperty("nutrition") Nutrition nutrition) {
 
         public record Nutrition(
