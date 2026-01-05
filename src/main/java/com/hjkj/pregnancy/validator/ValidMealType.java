@@ -36,3 +36,5 @@ public @interface ValidMealType {
     Class<? extends Payload>[] payload() default {};
 }
 
+
+

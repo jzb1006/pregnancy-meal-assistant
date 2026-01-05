@@ -35,3 +35,5 @@ public interface UserService {
      */
     UserProfileVO getUserProfile(String openId);
 }
+
+

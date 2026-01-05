@@ -71,3 +71,5 @@ public interface AiRequestLogRepository extends JpaRepository<AiRequestLog, Long
 }
 
 
+
+

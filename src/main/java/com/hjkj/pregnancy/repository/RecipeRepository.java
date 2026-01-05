@@ -71,3 +71,5 @@ public interface RecipeRepository extends JpaRepository<Recipe, Long> {
             String mealType,
             Integer pregnancyWeek);
 }
+
+

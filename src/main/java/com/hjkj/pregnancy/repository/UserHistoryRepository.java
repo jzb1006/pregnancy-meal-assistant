@@ -58,3 +58,5 @@ public interface UserHistoryRepository extends JpaRepository<UserHistory, Long> 
      */
     void deleteByUserIdAndRecipeId(Long userId, Long recipeId);
 }
+
+
