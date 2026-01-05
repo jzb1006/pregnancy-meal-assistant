@@ -30,40 +30,40 @@ public class ThreadPoolConfig {
      * @return 线程池执行器
      */
     @Bean(name = "aiStreamExecutor")
-    public Executor aiStreamExecutor() {
+    public ThreadPoolTaskExecutor aiStreamExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        
+
         // 核心线程数：根据CPU核心数设置
         int corePoolSize = Runtime.getRuntime().availableProcessors();
         executor.setCorePoolSize(corePoolSize);
-        
+
         // 最大线程数：核心线程数的2倍
         executor.setMaxPoolSize(corePoolSize * 2);
-        
+
         // 队列容量：100个任务
         executor.setQueueCapacity(100);
-        
+
         // 线程名称前缀
         executor.setThreadNamePrefix("ai-stream-");
-        
+
         // 线程空闲时间：60秒
         executor.setKeepAliveSeconds(60);
-        
+
         // 拒绝策略：由调用线程执行
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-        
+
         // 等待所有任务完成后再关闭线程池
         executor.setWaitForTasksToCompleteOnShutdown(true);
-        
+
         // 等待时间：30秒
         executor.setAwaitTerminationSeconds(30);
-        
+
         // 初始化
         executor.initialize();
-        
+
         log.info("AI流式推荐线程池初始化完成 - 核心线程数: {}, 最大线程数: {}, 队列容量: {}",
-            corePoolSize, corePoolSize * 2, 100);
-        
+                corePoolSize, corePoolSize * 2, 100);
+
         return executor;
     }
 
@@ -76,38 +76,38 @@ public class ThreadPoolConfig {
      * @return 线程池执行器
      */
     @Bean(name = "asyncExecutor")
-    public Executor asyncExecutor() {
+    public ThreadPoolTaskExecutor asyncExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        
+
         // 核心线程数
         executor.setCorePoolSize(4);
-        
+
         // 最大线程数
         executor.setMaxPoolSize(8);
-        
+
         // 队列容量
         executor.setQueueCapacity(200);
-        
+
         // 线程名称前缀
         executor.setThreadNamePrefix("async-");
-        
+
         // 线程空闲时间
         executor.setKeepAliveSeconds(60);
-        
+
         // 拒绝策略：由调用线程执行
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-        
+
         // 等待所有任务完成后再关闭线程池
         executor.setWaitForTasksToCompleteOnShutdown(true);
-        
+
         // 等待时间
         executor.setAwaitTerminationSeconds(30);
-        
+
         // 初始化
         executor.initialize();
-        
+
         log.info("通用异步任务线程池初始化完成 - 核心线程数: 4, 最大线程数: 8, 队列容量: 200");
-        
+
         return executor;
     }
 }
