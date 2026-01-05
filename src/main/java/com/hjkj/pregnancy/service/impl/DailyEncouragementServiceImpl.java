@@ -43,12 +43,10 @@ public class DailyEncouragementServiceImpl implements DailyEncouragementService 
     private final EncouragementLockManager lockManager;
     private final Clock clock;
 
+
     @Override
     public DailyEncouragementVO getDailyEncouragement(String openId, MoodType mood) {
-        // 默认心情为 HAPPY
-        MoodType finalMood = mood != null ? mood : MoodType.HAPPY;
-
-        log.info("获取每日鼓励语录: openId={}, mood={}", openId, finalMood);
+        log.info("获取每日鼓励语录: openId={}, mood={}", openId, mood);
 
         // 1. 检查缓存
         var cached = cacheManager.get(openId);
@@ -79,12 +77,18 @@ public class DailyEncouragementServiceImpl implements DailyEncouragementService 
                 return result;
             }
 
-            // 4. 未生成，调用 AI 生成
-            log.info("今日未生成，调用 AI: openId={}, mood={}", openId, finalMood);
-            DailyEncouragementVO result = generateWithAi(openId, finalMood, today);
+            // 4. 如果 mood 为 null，说明是查询模式，且无记录，直接返回 null
+            if (mood == null) {
+                log.info("查询模式且今日未生成，返回空: openId={}", openId);
+                return null;
+            }
 
-            // 5. 存储到数据库和缓存
-            saveToDatabase(openId, result, finalMood, today);
+            // 5.未生成且有 mood，调用 AI 生成
+            log.info("今日未生成，调用 AI: openId={}, mood={}", openId, mood);
+            DailyEncouragementVO result = generateWithAi(openId, mood, today);
+
+            // 6. 存储到数据库和缓存
+            saveToDatabase(openId, result, mood, today);
             cacheManager.put(openId, result);
 
             return result;
