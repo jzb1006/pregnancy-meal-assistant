@@ -4,6 +4,7 @@ import com.hjkj.pregnancy.entity.UserHistory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -16,7 +17,7 @@ import java.util.List;
  * @author Zhibin Jiang
  */
 @Repository
-public interface UserHistoryRepository extends JpaRepository<UserHistory, Long> {
+public interface UserHistoryRepository extends JpaRepository<UserHistory, Long>, JpaSpecificationExecutor<UserHistory> {
 
     /**
      * 查询用户最近浏览的食谱ID列表
@@ -57,6 +58,15 @@ public interface UserHistoryRepository extends JpaRepository<UserHistory, Long> 
      * @param recipeId 食谱ID
      */
     void deleteByUserIdAndRecipeId(Long userId, Long recipeId);
+
+    /**
+     * 查询用户对某个食谱的浏览记录
+     *
+     * @param userId   用户ID
+     * @param recipeId 食谱ID
+     * @return 浏览记录列表
+     */
+    List<UserHistory> findByUserIdAndRecipeId(Long userId, Long recipeId);
 }
 
 

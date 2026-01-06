@@ -38,7 +38,11 @@ public enum ErrorCode {
     // 业务逻辑错误 (5000-5999)
     INVALID_MEAL_TYPE(5000, "餐次类型无效"),
     RECIPE_NOT_FOUND(5001, "未找到合适的食谱"),
-    HISTORY_QUERY_ERROR(5002, "历史记录查询失败");
+    HISTORY_QUERY_ERROR(5002, "历史记录查询失败"),
+    MEAL_HISTORY_NOT_FOUND(5003, "未找到该菜单的浏览记录"),
+    MEAL_NOT_FOUND(5004, "菜单不存在"),
+    MEAL_DATA_ERROR(5005, "菜单数据异常"),
+    INVALID_FEEDBACK_ACTION(5006, "无效的反馈动作");
 
     private final int code;
     private final String message;

@@ -5,11 +5,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hjkj.pregnancy.entity.Recipe;
 import com.hjkj.pregnancy.entity.UserHistory;
 import com.hjkj.pregnancy.entity.UserProfile;
+import com.hjkj.pregnancy.enums.FeedbackAction;
+import com.hjkj.pregnancy.exception.BusinessException;
 import com.hjkj.pregnancy.model.ai.AiMealRecord;
+import com.hjkj.pregnancy.model.dto.HistorySearchRequest;
 import com.hjkj.pregnancy.model.vo.MealVO;
 import com.hjkj.pregnancy.repository.RecipeRepository;
 import com.hjkj.pregnancy.repository.UserHistoryRepository;
 import com.hjkj.pregnancy.repository.UserProfileRepository;
+import com.hjkj.pregnancy.repository.specification.UserHistorySpecification;
 import com.hjkj.pregnancy.service.HistoryService;
 import com.hjkj.pregnancy.entity.UserFeedback;
 import com.hjkj.pregnancy.model.PageResult;
@@ -17,6 +21,8 @@ import com.hjkj.pregnancy.repository.UserFeedbackRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -135,6 +141,131 @@ public class HistoryServiceImpl implements HistoryService {
                 .total(historyPage.getTotalElements())
                 .page(page)
                 .size(size)
+                .totalPages(historyPage.getTotalPages())
+                .list(voList)
+                .build();
+    }
+
+    @Override
+    public MealVO getMealDetail(String openId, Long recipeId) {
+        log.info("获取菜单详情: openId={}, recipeId={}", openId, recipeId);
+
+        // 查询用户
+        UserProfile user = userProfileRepository.findByOpenId(openId)
+                .orElseThrow(() -> new BusinessException(com.hjkj.pregnancy.exception.ErrorCode.USER_NOT_FOUND));
+
+        // 查询该用户的浏览历史记录
+        UserHistory history = historyRepository.findByUserIdAndRecipeId(user.getId(), recipeId)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(com.hjkj.pregnancy.exception.ErrorCode.MEAL_HISTORY_NOT_FOUND));
+
+        // 查询食谱详情
+        Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new BusinessException(com.hjkj.pregnancy.exception.ErrorCode.MEAL_NOT_FOUND));
+
+        // 查询用户反馈
+        String feedbackAction = userFeedbackRepository.findByUserIdAndRecipeId(user.getId(), recipeId)
+                .stream()
+                .findFirst()
+                .map(uf -> uf.getAction().name())
+                .orElse(null);
+
+        // 转换为VO
+        MealVO mealVO = convertToMealVO(recipe, history, feedbackAction);
+        if (mealVO == null) {
+            throw new BusinessException(com.hjkj.pregnancy.exception.ErrorCode.MEAL_DATA_ERROR);
+        }
+
+        log.info("成功获取菜单详情: dishName={}", mealVO.getDishName());
+        return mealVO;
+    }
+
+    @Override
+    public PageResult<MealVO> searchUserHistory(String openId, HistorySearchRequest request) {
+        log.info("搜索用户浏览历史: openId={}, request={}", openId, request);
+
+        // 查询用户
+        UserProfile user = userProfileRepository.findByOpenId(openId)
+                .orElseThrow(() -> new BusinessException(com.hjkj.pregnancy.exception.ErrorCode.USER_NOT_FOUND));
+
+        // 解析搜索条件
+        FeedbackAction feedbackAction = null;
+        if (request.getFeedbackAction() != null && !request.getFeedbackAction().isBlank()) {
+            try {
+                feedbackAction = FeedbackAction.valueOf(request.getFeedbackAction().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException(com.hjkj.pregnancy.exception.ErrorCode.INVALID_FEEDBACK_ACTION, 
+                                          "无效的反馈动作: " + request.getFeedbackAction());
+            }
+        }
+
+        // 构建查询规格
+        Specification<UserHistory> spec = UserHistorySpecification.buildSpecification(
+                user.getId(),
+                request.getDishName(),
+                feedbackAction,
+                request.getMealType()
+        );
+
+        // 分页查询（按浏览时间倒序）
+        Pageable pageable = PageRequest.of(
+                request.getPage() - 1,
+                request.getSize(),
+                Sort.by(Sort.Direction.DESC, "viewedAt")
+        );
+
+        Page<UserHistory> historyPage = historyRepository.findAll(spec, pageable);
+
+        // 收集食谱ID
+        List<Long> recipeIds = historyPage.getContent().stream()
+                .map(UserHistory::getRecipeId)
+                .collect(Collectors.toList());
+
+        if (recipeIds.isEmpty()) {
+            log.info("搜索结果为空");
+            return PageResult.<MealVO>builder()
+                    .total(0L)
+                    .page(request.getPage())
+                    .size(request.getSize())
+                    .totalPages(0)
+                    .list(new ArrayList<>())
+                    .build();
+        }
+
+        // 批量查询食谱详情
+        List<Recipe> recipes = recipeRepository.findAllById(recipeIds);
+
+        // 批量查询用户反馈
+        List<UserFeedback> feedbacks = userFeedbackRepository.findByUserIdAndRecipeIdIn(user.getId(), recipeIds);
+
+        // 构建ID到Recipe的映射
+        java.util.Map<Long, Recipe> recipeMap = recipes.stream()
+                .collect(Collectors.toMap(Recipe::getId, r -> r));
+
+        // 构建ID到Feedback的映射
+        java.util.Map<Long, String> feedbackMap = feedbacks.stream()
+                .collect(Collectors.toMap(UserFeedback::getRecipeId, uf -> uf.getAction().name(), (v1, v2) -> v1));
+
+        // 转换为VO
+        List<MealVO> voList = historyPage.getContent().stream()
+                .map(history -> {
+                    Recipe recipe = recipeMap.get(history.getRecipeId());
+                    if (recipe == null) {
+                        return null;
+                    }
+                    String feedback = feedbackMap.get(history.getRecipeId());
+                    return convertToMealVO(recipe, history, feedback);
+                })
+                .filter(vo -> vo != null)
+                .collect(Collectors.toList());
+
+        log.info("搜索完成，共找到 {} 条记录", historyPage.getTotalElements());
+
+        return PageResult.<MealVO>builder()
+                .total(historyPage.getTotalElements())
+                .page(request.getPage())
+                .size(request.getSize())
                 .totalPages(historyPage.getTotalPages())
                 .list(voList)
                 .build();

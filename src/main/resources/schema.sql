@@ -34,7 +34,9 @@ CREATE TABLE IF NOT EXISTS `recipe` (
   INDEX `idx_tags` (`tags`),
   INDEX `idx_bmi_category` (`bmi_category`),
   INDEX `idx_meal_type` (`meal_type`),
-  INDEX `idx_pregnancy_week` (`pregnancy_week`)
+  INDEX `idx_pregnancy_week` (`pregnancy_week`),
+  INDEX `idx_dish_name` (`dish_name`(50)) COMMENT '菜单名称索引，支持模糊搜索优化',
+  INDEX `idx_meal_bmi` (`meal_type`, `bmi_category`) COMMENT '餐次和BMI复合索引，优化组合查询'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='智能食谱表';
 
 -- 3. 浏览历史表
@@ -46,6 +48,7 @@ CREATE TABLE IF NOT EXISTS `user_history` (
   INDEX `idx_user_id` (`user_id`),
   INDEX `idx_recipe_id` (`recipe_id`),
   INDEX `idx_viewed_at` (`viewed_at`),
+  INDEX `idx_user_viewed` (`user_id`, `viewed_at`) COMMENT '用户和浏览时间复合索引，优化分页查询',
   FOREIGN KEY (`user_id`) REFERENCES `user_profile`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`recipe_id`) REFERENCES `recipe`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户浏览历史表';
