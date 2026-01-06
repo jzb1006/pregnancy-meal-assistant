@@ -456,4 +456,133 @@ public class RecommendationServiceImpl implements RecommendationService {
             }
         }
     }
+
+    @Override
+    public Flux<String> recommendMealFlux(String openId, String mealType) {
+        log.debug("开始非流式推荐(Flux): openId={}, mealType={}", openId, mealType);
+
+        return Flux.create(sink -> {
+            try {
+                // 1. 查人:获取用户档案
+                UserProfile user = userProfileRepository.findByOpenId(openId)
+                        .orElseThrow(() -> new UserNotFoundException(openId));
+                Long userId = user.getId();
+
+                // 2. 算命:计算当前状态
+                int week = DateUtil.calculatePregnancyWeek(user.getLastMenstrualPeriod());
+                double bmi = BmiUtil.calculateBmi(user.getHeight(), user.getCurrentWeight());
+                String bmiCategory = BmiUtil.getBmiCategory(bmi);
+                String stage = DateUtil.getPregnancyStage(week);
+
+                // 计算年龄相关信息
+                int age = AgeUtil.calculateAge(user.getBirthDate());
+                AgeUtil.AgeGroup ageGroup = AgeUtil.getAgeGroup(age);
+                String ageGroupLabel = AgeUtil.getAgeGroupLabel(ageGroup);
+                String ageAdvice = AgeUtil.getNutritionAdvice(age);
+                String ageKeywords = AgeUtil.getDietKeywords(age);
+
+                // 获取饮食偏好
+                String cuisinePreference = user.getCuisinePreference() != null
+                        ? user.getCuisinePreference().getLabel()
+                        : null;
+
+                // 3. 查史:获取最近看过的菜
+                List<Long> viewedIds = historyService.getRecentRecipeIds(user.getId(), historyRecentCount);
+                List<String> viewedDishNames = enableHistoryInPrompt
+                        ? historyService.getRecentDishNames(user.getId(), aiHistoryCount)
+                        : Collections.emptyList();
+
+                // 获取不喜欢的菜
+                List<Long> dislikedIds = feedbackService.getDislikedRecipeIds(user.getId());
+                List<com.hjkj.pregnancy.model.dto.DislikedDishDTO> dislikedDishes = feedbackService
+                        .getRecentDislikedDishes(user.getId());
+
+                // 合并排除列表
+                List<Long> excludeIds = new java.util.ArrayList<>();
+                if (viewedIds != null)
+                    excludeIds.addAll(viewedIds);
+                if (dislikedIds != null)
+                    excludeIds.addAll(dislikedIds);
+
+                if (excludeIds.isEmpty()) {
+                    excludeIds = Collections.singletonList(-1L);
+                }
+
+                // 4. 决策:先查库
+                Recipe recipe = recipeRepository.findSmartMatch(bmiCategory, mealType, week, excludeIds)
+                        .orElse(null);
+
+                if (recipe != null) {
+                    // 如果数据库有数据,直接返回完整数据
+                    log.debug("从数据库中找到合适的食谱: recipeId={}", recipe.getId());
+                    MealVO mealVO = convertToMealVO(recipe);
+                    String json = objectMapper.writeValueAsString(mealVO);
+
+                    // 记录浏览历史
+                    historyService.recordHistory(user.getId(), recipe.getId());
+
+                    sink.next(json);
+                    sink.complete();
+
+                } else {
+                    // 5. 调AI:流式生成
+                    log.debug("数据库中没有合适的食谱,调用AI生成新食谱");
+                    String prompt = buildPrompt(week, stage, bmiCategory, bmi, mealType,
+                            age, ageGroupLabel, ageAdvice, ageKeywords, viewedDishNames, cuisinePreference,
+                            user.getAllergies(), user.getDietaryRestrictions(), user.getPreferences(),
+                            dislikedDishes);
+
+                    BeanOutputConverter<AiMealRecord> converter = new BeanOutputConverter<>(AiMealRecord.class);
+                    String fullPrompt = prompt + "\n\n" + converter.getFormat();
+
+                    DashScopeChatOptions chatOptions = DashScopeChatOptions.builder()
+                            .model(aiModel)
+                            .temperature(aiTemperature)
+                            .build();
+
+                    Prompt aiPrompt = new Prompt(new UserMessage(fullPrompt), chatOptions);
+
+                    StringBuilder fullResponse = new StringBuilder();
+
+                    // 流式调用AI
+                    chatModel.stream(aiPrompt)
+                            .subscribe(
+                                    chatResponse -> {
+                                        String content = chatResponse.getResult().getOutput().getText();
+                                        fullResponse.append(content);
+                                        // 不发送chunks,只累积
+                                    },
+                                    error -> {
+                                        log.error("AI流式响应错误", error);
+                                        sink.error(error);
+                                    },
+                                    () -> {
+                                        try {
+                                            // AI完成,解析并保存
+                                            AiMealRecord aiOutput = converter.convert(fullResponse.toString());
+                                            Recipe savedRecipe = saveRecipeToDb(aiOutput, week, bmiCategory, mealType);
+
+                                            // 记录浏览历史
+                                            historyService.recordHistory(userId, savedRecipe.getId());
+
+                                            // 转换并返回
+                                            MealVO mealVO = convertToMealVO(savedRecipe);
+                                            String json = objectMapper.writeValueAsString(mealVO);
+
+                                            sink.next(json);
+                                            sink.complete();
+
+                                        } catch (Exception e) {
+                                            log.error("处理AI响应失败", e);
+                                            sink.error(e);
+                                        }
+                                    });
+                }
+
+            } catch (Exception e) {
+                log.error("推荐失败", e);
+                sink.error(e);
+            }
+        });
+    }
 }

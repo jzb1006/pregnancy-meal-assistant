@@ -41,12 +41,26 @@ public class MealController {
     public SseEmitter recommendStream(
             @Parameter(description = "用户唯一标识", required = true) @NotBlank(message = "用户标识不能为空") @RequestParam String openId,
 
-            @Parameter(description = "餐次类型：BREAKFAST/LUNCH/DINNER", required = true) @ValidMealType @RequestParam String mealType) {
+            @Parameter(description = "餐次类型:BREAKFAST/LUNCH/DINNER", required = true) @ValidMealType @RequestParam String mealType) {
 
         log.info("收到流式推荐请求: openId={}, mealType={}", openId, mealType);
 
-        // 参数验证已由 @ValidMealType 注解处理，无需手动验证
+        // 参数验证已由 @ValidMealType 注解处理,无需手动验证
         return recommendationService.recommendMealStream(openId, mealType.toUpperCase());
+    }
+
+    @GetMapping(value = "/recommend", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "推荐食谱(非流式)", description = "返回完整的食谱JSON,适配小程序")
+    public reactor.core.publisher.Mono<String> recommend(
+            @Parameter(description = "用户唯一标识", required = true) @NotBlank(message = "用户标识不能为空") @RequestParam String openId,
+            @Parameter(description = "餐次类型:BREAKFAST/LUNCH/DINNER", required = true) @ValidMealType @RequestParam String mealType) {
+
+        log.info("收到非流式推荐请求: openId={}, mealType={}", openId, mealType);
+
+        // 调用Service的Flux版本,聚合所有chunks为完整JSON
+        return recommendationService.recommendMealFlux(openId, mealType.toUpperCase())
+                .reduce(new StringBuilder(), StringBuilder::append)
+                .map(StringBuilder::toString);
     }
 
     @GetMapping("/history")

@@ -33,6 +33,17 @@ public class FoodController {
         return foodSafetyService.checkFoodSafety(openId, query);
     }
 
+    @GetMapping(value = "/check-json", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "能不能吃查询(非流式)", description = "返回完整JSON,适配小程序")
+    public reactor.core.publisher.Mono<String> checkFoodJson(
+            @Parameter(description = "用户ID (用于获取孕周)", required = true) @RequestParam String openId,
+            @Parameter(description = "查询词 (如: 螃蟹)", required = true) @RequestParam String query) {
+        // 聚合所有流式chunks为完整JSON
+        return foodSafetyService.checkFoodSafety(openId, query)
+                .reduce(new StringBuilder(), StringBuilder::append)
+                .map(StringBuilder::toString);
+    }
+
     @GetMapping("/tip")
     @Operation(summary = "每日营养贴士", description = "获取一条随机营养建议")
     public Result<String> getNutritionTip(

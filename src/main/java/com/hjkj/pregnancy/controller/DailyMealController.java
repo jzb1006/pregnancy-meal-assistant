@@ -25,17 +25,22 @@ public class DailyMealController {
 
     private final DailyRecommendationService dailyRecommendationService;
 
-    @GetMapping(value = "/recommend", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "获取今日推荐 (流式)", description = "获取今日的AI精选食谱，返回SSE流")
-    public Flux<String> getDailyRecommendation(
+    @GetMapping(value = "/recommend", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "获取今日推荐", description = "获取今日的AI精选食谱")
+    public reactor.core.publisher.Mono<String> getDailyRecommendation(
             @Parameter(description = "用户ID", required = true) @RequestParam String openId) {
-        return dailyRecommendationService.getDailyRecommendation(openId);
+        // Collect all chunks and return as single JSON
+        return dailyRecommendationService.getDailyRecommendation(openId)
+                .reduce(new StringBuilder(), StringBuilder::append)
+                .map(StringBuilder::toString);
     }
 
-    @PostMapping(value = "/swap", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "换一换 (流式)", description = "不满意当前推荐，重新生成（返回SSE流）")
-    public Flux<String> swapRecommendation(
+    @PostMapping(value = "/swap", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "换一换", description = "不满意当前推荐，重新生成")
+    public reactor.core.publisher.Mono<String> swapRecommendation(
             @Parameter(description = "用户ID", required = true) @RequestParam String openId) {
-        return dailyRecommendationService.swapRecommendation(openId);
+        return dailyRecommendationService.swapRecommendation(openId)
+                .reduce(new StringBuilder(), StringBuilder::append)
+                .map(StringBuilder::toString);
     }
 }
