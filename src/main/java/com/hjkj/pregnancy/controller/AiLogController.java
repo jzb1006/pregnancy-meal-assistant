@@ -1,7 +1,9 @@
 package com.hjkj.pregnancy.controller;
 
+import com.hjkj.pregnancy.annotation.RequireLogin;
 import com.hjkj.pregnancy.entity.AiRequestLog;
 import com.hjkj.pregnancy.service.AiLogService;
+import com.hjkj.pregnancy.utils.AuthContext;
 import com.hjkj.pregnancy.utils.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -30,14 +32,15 @@ public class AiLogController {
 
     private final AiLogService aiLogService;
 
-    @GetMapping("/user/{userId}")
-    @Operation(summary = "查询用户的AI请求日志", description = "根据用户ID查询所有AI请求记录")
-    public Result<List<AiRequestLog>> getUserLogs(
-            @Parameter(description = "用户唯一标识", required = true)
-            @PathVariable String userId) {
+    @RequireLogin
+    @GetMapping("/my-logs")
+    @Operation(summary = "查询我的AI请求日志", description = "查询当前用户的所有AI请求记录，需要登录token")
+    public Result<List<AiRequestLog>> getMyLogs() {
         try {
-            log.info("查询用户AI日志: userId={}", userId);
-            List<AiRequestLog> logs = aiLogService.getUserLogs(userId);
+            // 从token中获取openId
+            String openId = AuthContext.getCurrentOpenId();
+            log.info("查询用户AI日志: openId={}", openId);
+            List<AiRequestLog> logs = aiLogService.getUserLogs(openId);
             return Result.success(logs);
         } catch (Exception e) {
             log.error("查询用户AI日志失败", e);
@@ -89,13 +92,51 @@ public class AiLogController {
         }
     }
 
+    @RequireLogin
+    @GetMapping("/my-stats")
+    @Operation(summary = "统计我的AI请求", description = "统计当前用户的AI请求次数，需要登录token")
+    public Result<Map<String, Object>> getMyStats() {
+        try {
+            // 从token中获取openId
+            String openId = AuthContext.getCurrentOpenId();
+            log.info("统计用户AI请求: openId={}", openId);
+            Long count = aiLogService.countUserRequests(openId);
+            
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("openId", openId);
+            stats.put("totalRequests", count);
+            
+            return Result.success(stats);
+        } catch (Exception e) {
+            log.error("统计用户AI请求失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+    
+    // 管理员接口：查询指定用户日志（保留原有接口，但需要管理员权限）
+    @GetMapping("/user/{userId}")
+    @Operation(summary = "【管理员】查询指定用户的AI请求日志", description = "管理员查询任意用户的AI请求记录")
+    public Result<List<AiRequestLog>> getUserLogs(
+            @Parameter(description = "用户唯一标识", required = true)
+            @PathVariable String userId) {
+        try {
+            log.info("【管理员】查询用户AI日志: userId={}", userId);
+            List<AiRequestLog> logs = aiLogService.getUserLogs(userId);
+            return Result.success(logs);
+        } catch (Exception e) {
+            log.error("查询用户AI日志失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+    
+    // 管理员接口：统计指定用户
     @GetMapping("/stats/user/{userId}")
-    @Operation(summary = "统计用户的AI请求", description = "统计用户的AI请求次数")
+    @Operation(summary = "【管理员】统计指定用户的AI请求", description = "管理员统计任意用户的AI请求次数")
     public Result<Map<String, Object>> getUserStats(
             @Parameter(description = "用户唯一标识", required = true)
             @PathVariable String userId) {
         try {
-            log.info("统计用户AI请求: userId={}", userId);
+            log.info("【管理员】统计用户AI请求: userId={}", userId);
             Long count = aiLogService.countUserRequests(userId);
             
             Map<String, Object> stats = new HashMap<>();

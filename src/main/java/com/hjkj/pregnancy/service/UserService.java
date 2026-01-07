@@ -14,10 +14,11 @@ public interface UserService {
     /**
      * 初始化或更新用户档案
      * 
+     * @param openId 用户唯一标识（从JWT token中获取）
      * @param request 用户档案请求
      * @return 用户状态信息
      */
-    UserStatusVO saveOrUpdateProfile(UserProfileRequest request);
+    UserStatusVO saveOrUpdateProfile(String openId, UserProfileRequest request);
 
     /**
      * 获取用户当前状态
@@ -35,6 +36,7 @@ public interface UserService {
      */
     UserProfileVO getUserProfile(String openId);
 }
+
 
 
 

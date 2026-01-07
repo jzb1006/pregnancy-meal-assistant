@@ -7,11 +7,11 @@ USE pregnancy_meal;
 -- 1. 用户档案表
 CREATE TABLE IF NOT EXISTS `user_profile` (
   `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
-  `open_id` VARCHAR(64) NOT NULL UNIQUE COMMENT '用户唯一标识',
-  `last_menstrual_period` DATE NOT NULL COMMENT '末次月经日期',
-  `height` INT NOT NULL COMMENT '身高(cm)',
-  `current_weight` DECIMAL(5,2) NOT NULL COMMENT '当前体重(kg)',
-  `birth_date` DATE NOT NULL COMMENT '出生日期',
+  `open_id` VARCHAR(64) NOT NULL UNIQUE COMMENT '用户唯一标识（微信OpenID）',
+  `last_menstrual_period` DATE COMMENT '末次月经日期（静默登录可为空，完善档案时必填）',
+  `height` INT COMMENT '身高(cm)（静默登录可为空，完善档案时必填）',
+  `current_weight` DECIMAL(5,2) COMMENT '当前体重(kg)（静默登录可为空，完善档案时必填）',
+  `birth_date` DATE COMMENT '出生日期（静默登录可为空，完善档案时必填）',
   `cuisine_preference` VARCHAR(30) COMMENT '饮食偏好: CHINESE/WESTERN/JAPANESE_KOREAN/SOUTHEAST_ASIAN/VEGETARIAN/NO_PREFERENCE',
   `allergies` VARCHAR(255) COMMENT '过敏源',
   `dietary_restrictions` VARCHAR(255) COMMENT '忌口',

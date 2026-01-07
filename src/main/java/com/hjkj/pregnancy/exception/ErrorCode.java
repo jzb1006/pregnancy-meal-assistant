@@ -23,6 +23,13 @@ public enum ErrorCode {
     INVALID_BIRTH_DATE(2003, "出生日期无效"),
     INVALID_HEIGHT_WEIGHT(2004, "身高或体重数据无效"),
     
+    // 认证相关错误 (2100-2199)
+    UNAUTHORIZED(2100, "未登录或token已过期"),
+    TOKEN_INVALID(2101, "token无效"),
+    TOKEN_EXPIRED(2102, "token已过期，请重新登录"),
+    WX_LOGIN_FAILED(2103, "微信登录失败"),
+    WX_CODE_INVALID(2104, "微信登录凭证无效或已过期"),
+    
     // AI服务相关错误 (3000-3999)
     AI_SERVICE_ERROR(3000, "AI服务暂时不可用，请稍后重试"),
     AI_TIMEOUT(3001, "AI响应超时"),

@@ -33,27 +33,27 @@ public class UserProfile {
     private String openId;
 
     /**
-     * 末次月经日期
+     * 末次月经日期（首次登录可为空，完善档案时必填）
      */
-    @Column(name = "last_menstrual_period", nullable = false)
+    @Column(name = "last_menstrual_period")
     private LocalDate lastMenstrualPeriod;
 
     /**
-     * 身高(cm)
+     * 身高(cm)（首次登录可为空，完善档案时必填）
      */
-    @Column(name = "height", nullable = false)
+    @Column(name = "height")
     private Integer height;
 
     /**
-     * 当前体重(kg)
+     * 当前体重(kg)（首次登录可为空，完善档案时必填）
      */
-    @Column(name = "current_weight", nullable = false)
+    @Column(name = "current_weight")
     private Double currentWeight;
 
     /**
-     * 出生日期
+     * 出生日期（首次登录可为空，完善档案时必填）
      */
-    @Column(name = "birth_date", nullable = false)
+    @Column(name = "birth_date")
     private LocalDate birthDate;
 
     /**

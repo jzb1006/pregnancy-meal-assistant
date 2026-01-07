@@ -499,10 +499,12 @@ public class RecommendationServiceImpl implements RecommendationService {
 
                 // 合并排除列表
                 List<Long> excludeIds = new java.util.ArrayList<>();
-                if (viewedIds != null)
+                if (viewedIds != null) {
                     excludeIds.addAll(viewedIds);
-                if (dislikedIds != null)
+                }
+                if (dislikedIds != null) {
                     excludeIds.addAll(dislikedIds);
+                }
 
                 if (excludeIds.isEmpty()) {
                     excludeIds = Collections.singletonList(-1L);

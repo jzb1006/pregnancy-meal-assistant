@@ -12,14 +12,15 @@ import java.time.LocalDate;
  * <p>
  * 使用 Java 21 Record 实现不可变数据传输对象
  * </p>
+ * <p>
+ * 注意：openId 从 JWT token 中获取，不需要在请求体中传递
+ * </p>
  * 
  * @author Zhibin Jiang
  * @since 2025-12-30
  */
 @Schema(description = "用户档案请求对象")
 public record UserProfileRequest(
-
-        @NotBlank(message = "用户标识不能为空") @Schema(description = "用户唯一标识（微信OpenID）", example = "wx_123456") String openId,
 
         @NotNull(message = "末次月经日期不能为空") @PastOrPresent(message = "末次月经日期不能是未来时间") @LmpWithinRange(maxDays = 301) @JsonFormat(pattern = "yyyy-MM-dd") @Schema(description = "末次月经日期", example = "2025-10-01") LocalDate lmp,
 

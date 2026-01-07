@@ -1,16 +1,17 @@
 package com.hjkj.pregnancy.controller;
 
+import com.hjkj.pregnancy.annotation.RequireLogin;
 import com.hjkj.pregnancy.model.PageResult;
 import com.hjkj.pregnancy.model.dto.HistorySearchRequest;
 import com.hjkj.pregnancy.model.vo.MealVO;
 import com.hjkj.pregnancy.service.HistoryService;
 import com.hjkj.pregnancy.service.RecommendationService;
+import com.hjkj.pregnancy.utils.AuthContext;
 import com.hjkj.pregnancy.utils.Result;
 import com.hjkj.pregnancy.validator.ValidMealType;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -38,25 +39,28 @@ public class MealController {
         this.historyService = historyService;
     }
 
+    @RequireLogin
     @GetMapping(value = "/recommend/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "流式推荐食谱", description = "使用SSE流式返回AI生成的食谱内容")
+    @Operation(summary = "流式推荐食谱", description = "使用SSE流式返回AI生成的食谱内容，需要登录token")
     public SseEmitter recommendStream(
-            @Parameter(description = "用户唯一标识", required = true) @NotBlank(message = "用户标识不能为空") @RequestParam String openId,
-
             @Parameter(description = "餐次类型:BREAKFAST/LUNCH/DINNER", required = true) @ValidMealType @RequestParam String mealType) {
 
+        // 从token中获取openId
+        String openId = AuthContext.getCurrentOpenId();
         log.info("收到流式推荐请求: openId={}, mealType={}", openId, mealType);
 
         // 参数验证已由 @ValidMealType 注解处理,无需手动验证
         return recommendationService.recommendMealStream(openId, mealType.toUpperCase());
     }
 
+    @RequireLogin
     @GetMapping(value = "/recommend", produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "推荐食谱(非流式)", description = "返回完整的食谱JSON,适配小程序")
+    @Operation(summary = "推荐食谱(非流式)", description = "返回完整的食谱JSON,适配小程序，需要登录token")
     public reactor.core.publisher.Mono<String> recommend(
-            @Parameter(description = "用户唯一标识", required = true) @NotBlank(message = "用户标识不能为空") @RequestParam String openId,
             @Parameter(description = "餐次类型:BREAKFAST/LUNCH/DINNER", required = true) @ValidMealType @RequestParam String mealType) {
 
+        // 从token中获取openId
+        String openId = AuthContext.getCurrentOpenId();
         log.info("收到非流式推荐请求: openId={}, mealType={}", openId, mealType);
 
         // 调用Service的Flux版本,聚合所有chunks为完整JSON
@@ -65,12 +69,14 @@ public class MealController {
                 .map(StringBuilder::toString);
     }
 
+    @RequireLogin
     @GetMapping("/history/{recipeId}")
-    @Operation(summary = "获取菜单详情", description = "根据食谱ID获取菜单的完整详细信息")
+    @Operation(summary = "获取菜单详情", description = "根据食谱ID获取菜单的完整详细信息，需要登录token")
     public Result<MealVO> getMealDetail(
-            @Parameter(description = "用户唯一标识", required = true) @NotBlank(message = "用户标识不能为空") @RequestParam String openId,
             @Parameter(description = "食谱ID", required = true) @NotNull(message = "食谱ID不能为空") @PathVariable Long recipeId) {
         try {
+            // 从token中获取openId
+            String openId = AuthContext.getCurrentOpenId();
             log.info("查询菜单详情: openId={}, recipeId={}", openId, recipeId);
             MealVO mealDetail = historyService.getMealDetail(openId, recipeId);
             return Result.success(mealDetail);
@@ -80,17 +86,19 @@ public class MealController {
         }
     }
 
+    @RequireLogin
     @GetMapping("/history")
     @Operation(summary = "获取浏览历史（支持搜索）", 
-               description = "查询用户的浏览历史记录，支持多条件搜索：菜单名模糊搜索、反馈筛选、餐次筛选")
+               description = "查询用户的浏览历史记录，支持多条件搜索：菜单名模糊搜索、反馈筛选、餐次筛选，需要登录token")
     public Result<PageResult<MealVO>> getHistory(
-            @Parameter(description = "用户唯一标识", required = true) @NotBlank(message = "用户标识不能为空") @RequestParam String openId,
             @Parameter(description = "菜单名称（模糊搜索）") @RequestParam(required = false) String dishName,
             @Parameter(description = "反馈动作筛选（LIKE/DISLIKE/BORED）") @RequestParam(required = false) String feedbackAction,
             @Parameter(description = "餐次类型筛选（BREAKFAST/LUNCH/DINNER）") @RequestParam(required = false) String mealType,
             @Parameter(description = "页码(默认1)", example = "1") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页大小(默认10)", example = "10") @RequestParam(defaultValue = "10") int size) {
         try {
+            // 从token中获取openId
+            String openId = AuthContext.getCurrentOpenId();
             log.info("查询浏览历史: openId={}, dishName={}, feedbackAction={}, mealType={}, page={}, size={}", 
                      openId, dishName, feedbackAction, mealType, page, size);
 

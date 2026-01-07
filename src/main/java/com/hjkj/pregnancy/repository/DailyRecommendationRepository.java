@@ -11,7 +11,8 @@ import java.util.Optional;
 public interface DailyRecommendationRepository extends JpaRepository<DailyRecommendation, Long> {
 
     /**
-     * 根据用户ID和日期查询今日推荐
+     * 根据用户ID和日期查询今日推荐（返回最新的一条）
+     * 使用 First 关键字确保即使有重复数据也只返回第一条
      */
-    Optional<DailyRecommendation> findByUserIdAndRecDate(Long userId, LocalDate recDate);
+    Optional<DailyRecommendation> findFirstByUserIdAndRecDateOrderByCreatedAtDesc(Long userId, LocalDate recDate);
 }

@@ -36,13 +36,13 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UserStatusVO saveOrUpdateProfile(UserProfileRequest request) {
-        log.info("保存或更新用户档案: openId={}", request.openId());
+    public UserStatusVO saveOrUpdateProfile(String openId, UserProfileRequest request) {
+        log.info("保存或更新用户档案: openId={}", openId);
 
         // 查询是否已存在
-        UserProfile userProfile = userProfileRepository.findByOpenId(request.openId())
+        UserProfile userProfile = userProfileRepository.findByOpenId(openId)
                 .orElse(UserProfile.builder()
-                        .openId(request.openId())
+                        .openId(openId)
                         .build());
 
         // 更新用户信息

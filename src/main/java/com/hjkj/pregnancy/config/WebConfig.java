@@ -1,7 +1,10 @@
 package com.hjkj.pregnancy.config;
 
+import com.hjkj.pregnancy.interceptor.JwtAuthInterceptor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -10,7 +13,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * @author Zhibin Jiang
  */
 @Configuration
+@RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
+
+    private final JwtAuthInterceptor jwtAuthInterceptor;
 
     @org.springframework.beans.factory.annotation.Autowired
     @org.springframework.beans.factory.annotation.Qualifier("aiStreamExecutor")
@@ -21,6 +27,24 @@ public class WebConfig implements WebMvcConfigurer {
             org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer configurer) {
         configurer.setTaskExecutor(aiStreamExecutor);
         configurer.setDefaultTimeout(60000); // 60 seconds timeout
+    }
+
+    /**
+     * 配置拦截器
+     */
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(jwtAuthInterceptor)
+                .addPathPatterns("/v1/**")  // 拦截所有API路径
+                .excludePathPatterns(
+                        "/v1/auth/**",              // 排除认证接口
+                        "/swagger-ui.html",         // 排除Swagger UI
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**",
+                        "/swagger-resources/**",
+                        "/webjars/**",
+                        "/error"
+                );
     }
 
     /**

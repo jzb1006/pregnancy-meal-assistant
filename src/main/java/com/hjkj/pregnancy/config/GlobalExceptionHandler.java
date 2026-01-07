@@ -1,11 +1,14 @@
 package com.hjkj.pregnancy.config;
 
 import com.hjkj.pregnancy.exception.AiServiceException;
+import com.hjkj.pregnancy.exception.AuthException;
 import com.hjkj.pregnancy.exception.BusinessException;
 import com.hjkj.pregnancy.exception.ErrorCode;
 import com.hjkj.pregnancy.exception.UserNotFoundException;
 import com.hjkj.pregnancy.exception.ValidationException;
 import com.hjkj.pregnancy.utils.Result;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -30,6 +33,37 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /**
+     * 处理认证异常
+     */
+    @ExceptionHandler(AuthException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Result<?> handleAuthException(AuthException e, HttpServletRequest request) {
+        log.warn("认证异常 - 路径: {}, 错误码: {}, 消息: {}", 
+            request.getRequestURI(), e.getCode(), e.getMessage());
+        return Result.error(e.getCode(), e.getMessage());
+    }
+
+    /**
+     * 处理JWT token过期异常
+     */
+    @ExceptionHandler(ExpiredJwtException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Result<?> handleExpiredJwtException(ExpiredJwtException e, HttpServletRequest request) {
+        log.warn("Token已过期 - 路径: {}", request.getRequestURI());
+        return Result.error(ErrorCode.TOKEN_EXPIRED.getCode(), ErrorCode.TOKEN_EXPIRED.getMessage());
+    }
+
+    /**
+     * 处理JWT相关异常
+     */
+    @ExceptionHandler(JwtException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Result<?> handleJwtException(JwtException e, HttpServletRequest request) {
+        log.warn("Token验证失败 - 路径: {}, 消息: {}", request.getRequestURI(), e.getMessage());
+        return Result.error(ErrorCode.TOKEN_INVALID.getCode(), ErrorCode.TOKEN_INVALID.getMessage());
+    }
 
     /**
      * 处理用户不存在异常

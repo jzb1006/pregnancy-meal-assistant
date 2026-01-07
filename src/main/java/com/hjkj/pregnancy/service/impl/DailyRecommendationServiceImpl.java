@@ -49,7 +49,7 @@ public class DailyRecommendationServiceImpl implements DailyRecommendationServic
         LocalDate today = LocalDate.now();
 
         // 1. Check Cache
-        DailyRecommendation rec = dailyRecRepository.findByUserIdAndRecDate(user.getId(), today)
+        DailyRecommendation rec = dailyRecRepository.findFirstByUserIdAndRecDateOrderByCreatedAtDesc(user.getId(), today)
                 .orElse(null);
 
         if (rec != null) {
@@ -68,7 +68,7 @@ public class DailyRecommendationServiceImpl implements DailyRecommendationServic
         LocalDate today = LocalDate.now();
 
         // Check Existing for Rejection History
-        DailyRecommendation rec = dailyRecRepository.findByUserIdAndRecDate(user.getId(), today)
+        DailyRecommendation rec = dailyRecRepository.findFirstByUserIdAndRecDateOrderByCreatedAtDesc(user.getId(), today)
                 .orElse(null);
 
         List<String> rejectedHistory = new ArrayList<>();
@@ -140,7 +140,7 @@ public class DailyRecommendationServiceImpl implements DailyRecommendationServic
 
                         AiDailyRecRecord aiRecord = converter.convert(fullContent);
 
-                        DailyRecommendation rec = dailyRecRepository.findByUserIdAndRecDate(user.getId(), date)
+                        DailyRecommendation rec = dailyRecRepository.findFirstByUserIdAndRecDateOrderByCreatedAtDesc(user.getId(), date)
                                 .orElse(DailyRecommendation.builder()
                                         .userId(user.getId())
                                         .recDate(date)
