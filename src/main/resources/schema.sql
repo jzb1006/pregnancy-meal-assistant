@@ -128,3 +128,38 @@ CREATE TABLE IF NOT EXISTS `weight_record` (
   UNIQUE KEY `uk_openid_date` (`open_id`, `record_date`),
   INDEX `idx_openid_created` (`open_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='体重记录表';
+
+-- 9. 产检标准模板表
+CREATE TABLE IF NOT EXISTS `prenatal_check_template` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+  `code` VARCHAR(50) NOT NULL UNIQUE COMMENT '项目编码（唯一标识）',
+  `week_range_start` INT NOT NULL COMMENT '孕周范围-开始',
+  `week_range_end` INT NOT NULL COMMENT '孕周范围-结束',
+  `title` VARCHAR(100) NOT NULL COMMENT '产检名称',
+  `short_desc` VARCHAR(200) COMMENT '简短描述',
+  `details` TEXT COMMENT '详细说明',
+  `tips` TEXT COMMENT '注意事项',
+  `stage` VARCHAR(20) NOT NULL COMMENT '孕期阶段：EARLY/MID/LATE',
+  `stage_title` VARCHAR(50) NOT NULL COMMENT '阶段标题',
+  `stage_icon` VARCHAR(10) COMMENT '阶段图标',
+  `sort_order` INT NOT NULL DEFAULT 0 COMMENT '排序号',
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  INDEX `idx_stage_order` (`stage`, `sort_order`),
+  INDEX `idx_week_range` (`week_range_start`, `week_range_end`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='产检标准模板表';
+
+-- 10. 用户产检完成状态表
+CREATE TABLE IF NOT EXISTS `user_prenatal_check` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+  `open_id` VARCHAR(64) NOT NULL COMMENT '用户标识(微信OpenID)',
+  `template_code` VARCHAR(50) NOT NULL COMMENT '产检项目编码',
+  `is_done` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否完成',
+  `check_date` DATE COMMENT '实际检查日期',
+  `note` VARCHAR(500) COMMENT '备注',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  UNIQUE KEY `uk_openid_code` (`open_id`, `template_code`),
+  INDEX `idx_openid_done` (`open_id`, `is_done`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户产检完成状态表';
