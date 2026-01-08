@@ -114,3 +114,17 @@ CREATE TABLE IF NOT EXISTS `daily_recommendation` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY `uk_user_date` (`user_id`, `rec_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='每日食谱推荐表';
+
+-- 8. 体重记录表
+CREATE TABLE IF NOT EXISTS `weight_record` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+  `open_id` VARCHAR(64) NOT NULL COMMENT '用户标识(微信OpenID)',
+  `record_date` DATE NOT NULL COMMENT '记录日期',
+  `weight` DECIMAL(5,2) NOT NULL COMMENT '体重(kg)',
+  `pregnancy_week` INT COMMENT '孕周',
+  `note` VARCHAR(500) COMMENT '备注',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  UNIQUE KEY `uk_openid_date` (`open_id`, `record_date`),
+  INDEX `idx_openid_created` (`open_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='体重记录表';
