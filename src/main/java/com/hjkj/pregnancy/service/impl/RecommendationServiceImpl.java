@@ -1,9 +1,8 @@
 package com.hjkj.pregnancy.service.impl;
 
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hjkj.pregnancy.advisor.AiAdvisorContext;
 import com.hjkj.pregnancy.constants.PregnancyConstants;
 import com.hjkj.pregnancy.entity.Recipe;
 import com.hjkj.pregnancy.entity.UserProfile;
@@ -13,20 +12,17 @@ import com.hjkj.pregnancy.model.ai.AiMealRecord;
 import com.hjkj.pregnancy.model.vo.MealVO;
 import com.hjkj.pregnancy.repository.RecipeRepository;
 import com.hjkj.pregnancy.repository.UserProfileRepository;
+import com.hjkj.pregnancy.service.ChatModelService;
+import com.hjkj.pregnancy.service.FeedbackService;
 import com.hjkj.pregnancy.service.HistoryService;
 import com.hjkj.pregnancy.service.PromptBuilder;
 import com.hjkj.pregnancy.service.RecommendationService;
 import com.hjkj.pregnancy.utils.AgeUtil;
-import com.hjkj.pregnancy.advisor.AiAdvisorContext;
-import com.hjkj.pregnancy.advisor.AiRequestAdvisor;
-import com.hjkj.pregnancy.service.FeedbackService;
 import com.hjkj.pregnancy.utils.BmiUtil;
 import com.hjkj.pregnancy.utils.DateUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,9 +49,8 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final UserProfileRepository userProfileRepository;
     private final RecipeRepository recipeRepository;
     private final HistoryService historyService;
-    private final DashScopeChatModel chatModel;
+    private final ChatModelService chatModelService;
     private final ObjectMapper objectMapper;
-    private final AiRequestAdvisor aiRequestAdvisor;
     private final FeedbackService feedbackService;
 
     @Qualifier("aiStreamExecutor")
@@ -69,12 +64,6 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     @Value("${pregnancy.history.enable-history-in-prompt:true}")
     private boolean enableHistoryInPrompt;
-
-    @Value("${spring.ai.dashscope.chat.options.model:qwen3-max}")
-    private String aiModel;
-
-    @Value("${spring.ai.dashscope.chat.options.temperature:0.7}")
-    private Double aiTemperature;
 
     /**
      * 构建AI提示词（使用PromptBuilder）
@@ -308,39 +297,21 @@ public class RecommendationServiceImpl implements RecommendationService {
         AiAdvisorContext context = AiAdvisorContext.of(openId, "meal_recommend_stream", mealType);
 
         try {
-            log.debug("开始流式调用AI，Prompt长度: {}, 模型: {}", prompt.length(), aiModel);
+            log.debug("开始流式调用AI，Prompt长度: {}", prompt.length());
 
             BeanOutputConverter<AiMealRecord> converter = new BeanOutputConverter<>(AiMealRecord.class);
             String format = converter.getFormat();
-
             String fullPrompt = prompt + "\n\n" + format;
 
-            // 构造 ChatOptions，显式指定模型
-            DashScopeChatOptions chatOptions = DashScopeChatOptions.builder()
-                    .model(aiModel)
-                    .temperature(aiTemperature)
-                    .build();
-
-            Prompt aiPrompt = new Prompt(new UserMessage(fullPrompt), chatOptions);
-
-            // 包装 Advisor 参数
-            var advisorParams = AiRequestAdvisor.wrapContext(context);
-
-            // 请求前拦截
-            aiPrompt = aiRequestAdvisor.beforeRequest(aiPrompt, advisorParams);
-
-            // 使用stream方法获取流式响应（会使用 Prompt 中的 ChatOptions）
+            // 使用 ChatModelService 流式调用（自动应用 Advisor 拦截）
             // 增加超时控制，防止AI服务无响应导致前端长连接挂起
-            Flux<ChatResponse> responseFlux = chatModel.stream(aiPrompt)
+            Flux<ChatResponse> responseFlux = chatModelService.stream(fullPrompt, context)
                     .timeout(java.time.Duration.ofSeconds(15));
-
-            // 使用 Advisor 包装流式响应（自动处理拦截和日志）
-            Flux<ChatResponse> advisedFlux = aiRequestAdvisor.afterStreamResponse(responseFlux, advisorParams);
 
             StringBuilder fullResponse = new StringBuilder();
 
             // 订阅流式响应
-            advisedFlux.subscribe(
+            responseFlux.subscribe(
                     chatResponse -> {
                         // 每次收到一个chunk，发送给客户端
                         String content = chatResponse.getResult().getOutput().getText();
@@ -387,9 +358,6 @@ public class RecommendationServiceImpl implements RecommendationService {
                         } catch (Exception e) {
                             log.error("处理AI响应失败", e);
 
-                            // 错误拦截（Advisor 会自动记录日志）
-                            aiRequestAdvisor.onError(e, advisorParams);
-
                             try {
                                 emitter.send(SseEmitter.event()
                                         .name("error")
@@ -403,10 +371,6 @@ public class RecommendationServiceImpl implements RecommendationService {
 
         } catch (Exception e) {
             log.error("流式调用AI失败", e);
-
-            // 错误拦截（Advisor 会自动记录日志）
-            aiRequestAdvisor.onError(e, AiRequestAdvisor.wrapContext(context));
-
             // 尝试降级
             handleMealFallback(emitter, userId, bmiCategory, mealType, e.getMessage());
         }
@@ -537,17 +501,13 @@ public class RecommendationServiceImpl implements RecommendationService {
                     BeanOutputConverter<AiMealRecord> converter = new BeanOutputConverter<>(AiMealRecord.class);
                     String fullPrompt = prompt + "\n\n" + converter.getFormat();
 
-                    DashScopeChatOptions chatOptions = DashScopeChatOptions.builder()
-                            .model(aiModel)
-                            .temperature(aiTemperature)
-                            .build();
-
-                    Prompt aiPrompt = new Prompt(new UserMessage(fullPrompt), chatOptions);
+                    // 创建 AI Advisor 上下文
+                    AiAdvisorContext context = AiAdvisorContext.of(openId, "meal_recommend_flux", mealType);
 
                     StringBuilder fullResponse = new StringBuilder();
 
-                    // 流式调用AI
-                    chatModel.stream(aiPrompt)
+                    // 使用 ChatModelService 流式调用
+                    chatModelService.stream(fullPrompt, context)
                             .subscribe(
                                     chatResponse -> {
                                         String content = chatResponse.getResult().getOutput().getText();

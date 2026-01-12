@@ -10,7 +10,7 @@ import com.hjkj.pregnancy.model.dto.EncouragementResponse;
 import com.hjkj.pregnancy.model.vo.DailyEncouragementVO;
 import com.hjkj.pregnancy.model.vo.UserStatusVO;
 import com.hjkj.pregnancy.repository.DailyEncouragementRepository;
-import com.hjkj.pregnancy.service.AiService;
+import com.hjkj.pregnancy.service.ChatModelService;
 import com.hjkj.pregnancy.service.DailyEncouragementService;
 import com.hjkj.pregnancy.service.EncouragementPromptBuilder;
 import com.hjkj.pregnancy.service.UserService;
@@ -37,7 +37,7 @@ public class DailyEncouragementServiceImpl implements DailyEncouragementService 
 
     private final UserService userService;
     private final DailyEncouragementRepository dailyEncouragementRepository;
-    private final AiService aiService;
+    private final ChatModelService chatModelService;
     private final EncouragementPromptBuilder promptBuilder;
     private final EncouragementCacheManager cacheManager;
     private final EncouragementLockManager lockManager;
@@ -131,7 +131,7 @@ public class DailyEncouragementServiceImpl implements DailyEncouragementService 
                     "GENERATE"
             );
 
-            EncouragementResponse response = aiService.callWithContext(
+            EncouragementResponse response = chatModelService.call(
                     prompt,
                     EncouragementResponse.class,
                     context

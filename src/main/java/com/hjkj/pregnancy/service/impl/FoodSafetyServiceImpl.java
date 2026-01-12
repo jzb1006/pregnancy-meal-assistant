@@ -1,31 +1,29 @@
 package com.hjkj.pregnancy.service.impl;
 
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
+import com.hjkj.pregnancy.advisor.AiAdvisorContext;
 import com.hjkj.pregnancy.entity.UserProfile;
 import com.hjkj.pregnancy.exception.UserNotFoundException;
 import com.hjkj.pregnancy.model.dto.FoodCheckResponse;
 import com.hjkj.pregnancy.repository.UserProfileRepository;
+import com.hjkj.pregnancy.service.ChatModelService;
 import com.hjkj.pregnancy.service.FoodSafetyService;
 import com.hjkj.pregnancy.utils.DateUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Random;
-import reactor.core.publisher.Flux;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class FoodSafetyServiceImpl implements FoodSafetyService {
 
-        private final DashScopeChatModel chatModel;
+        private final ChatModelService chatModelService;
         private final UserProfileRepository userProfileRepository;
 
         private static final String SAFETY_SYSTEM_PROMPT = """
@@ -92,17 +90,13 @@ public class FoodSafetyServiceImpl implements FoodSafetyService {
 
                 String fullPrompt = SAFETY_SYSTEM_PROMPT + "\n\n" + userPromptText + "\n\n" + format;
 
-                // 4. 调用 AI (流式)
-                DashScopeChatOptions chatOptions = DashScopeChatOptions.builder()
-                                .model("qwen-plus")
-                                .temperature(0.2)
-                                .build();
-
-                Prompt prompt = new Prompt(new UserMessage(fullPrompt), chatOptions);
+                // 4. 创建 AI Advisor 上下文
+                AiAdvisorContext context = AiAdvisorContext.of(openId, "food_safety_check", "CHECK");
 
                 log.info("调用AI检查食品安全(流式): openId={}, query={}", openId, query);
 
-                return chatModel.stream(prompt)
+                // 5. 使用 ChatModelService 流式调用
+                return chatModelService.stream(fullPrompt, context)
                                 .map(chatResponse -> {
                                         String content = chatResponse.getResult().getOutput().getText();
                                         return content != null ? content : "";
@@ -114,8 +108,6 @@ public class FoodSafetyServiceImpl implements FoodSafetyService {
         public String getNutritionTip(String openId) {
                 // 简单实现：随机返回一条
                 // 进阶实现：可以根据孕周返回 (Week based tips)
-                Random random = new Random(LocalDate.now().toEpochDay()); // 每天固定随机种子? 或者完全随机
-                // 这里使用完全随机，每次刷新都不同，或者使用 System.currentTimeMillis()
                 return NUTRITION_TIPS.get(new Random().nextInt(NUTRITION_TIPS.size()));
         }
 }

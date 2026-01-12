@@ -1,9 +1,8 @@
 package com.hjkj.pregnancy.service.impl;
 
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hjkj.pregnancy.advisor.AiAdvisorContext;
 import com.hjkj.pregnancy.entity.DailyRecommendation;
 import com.hjkj.pregnancy.entity.UserProfile;
 import com.hjkj.pregnancy.exception.AiServiceException;
@@ -12,26 +11,23 @@ import com.hjkj.pregnancy.model.ai.AiDailyRecRecord;
 import com.hjkj.pregnancy.model.vo.MealVO;
 import com.hjkj.pregnancy.repository.DailyRecommendationRepository;
 import com.hjkj.pregnancy.repository.UserProfileRepository;
+import com.hjkj.pregnancy.service.ChatModelService;
 import com.hjkj.pregnancy.service.DailyRecommendationService;
 import com.hjkj.pregnancy.service.PromptBuilder;
 import com.hjkj.pregnancy.utils.BmiUtil;
 import com.hjkj.pregnancy.utils.DateUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import reactor.core.publisher.Flux;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
-import reactor.core.publisher.Flux;
 
 @Slf4j
 @Service
@@ -40,7 +36,7 @@ public class DailyRecommendationServiceImpl implements DailyRecommendationServic
 
     private final DailyRecommendationRepository dailyRecRepository;
     private final UserProfileRepository userProfileRepository;
-    private final DashScopeChatModel chatModel;
+    private final ChatModelService chatModelService;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -106,17 +102,17 @@ public class DailyRecommendationServiceImpl implements DailyRecommendationServic
         BeanOutputConverter<AiDailyRecRecord> converter = new BeanOutputConverter<>(AiDailyRecRecord.class);
         String fullPrompt = promptText + "\n\n" + converter.getFormat();
 
-        DashScopeChatOptions chatOptions = DashScopeChatOptions.builder()
-                .model("qwen-plus")
-                .temperature(1.1)
-                .build();
-
-        Prompt prompt = new Prompt(new UserMessage(fullPrompt), chatOptions);
+        // 创建 AI Advisor 上下文
+        AiAdvisorContext aiContext = AiAdvisorContext.of(
+                user.getOpenId(),
+                "daily_recommendation",
+                "DAILY"
+        );
 
         // 2. Stream & Accumulate
         StringBuilder contentBuilder = new StringBuilder();
 
-        return chatModel.stream(prompt)
+        return chatModelService.stream(fullPrompt, aiContext)
                 .map(chatResponse -> {
                     String content = chatResponse.getResult().getOutput().getText();
                     if (content != null) {
