@@ -7,8 +7,8 @@ services:
     container_name: pregnancy-mysql
     restart: always
     ports:
-      # 生产环境建议仅本机可访问；如需对外暴露请自行调整绑定地址/防火墙
-      - "127.0.0.1:3306:3306"
+      # 允许外网访问（生产环境建议配置防火墙白名单）
+      - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Please set MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-pregnancy_meal}
@@ -41,8 +41,9 @@ services:
     container_name: pregnancy-app
     restart: always
     init: true
-    ports:
-      - "8080:8080"
+    # 不再暴露到宿主机，仅内部网络访问
+    expose:
+      - "8080"
     environment:
       # 数据库连接配置
       DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-pregnancy_meal}?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
@@ -77,11 +78,42 @@ services:
     networks:
       - pregnancy-net
 
+  # Nginx 反向代理服务
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: pregnancy-nginx
+    restart: always
+    ports:
+      - "80:80"
+      # 如需 HTTPS，取消下面的注释并配置 SSL 证书
+      # - "443:443"
+    volumes:
+      # Nginx 配置文件
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      # SSL 证书目录（如需 HTTPS）
+      # - ./nginx/ssl:/etc/nginx/ssl:ro
+      # Nginx 日志
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - pregnancy-net
+
 # 数据卷定义
 volumes:
   mysql_data:
     driver: local
   app_logs:
+    driver: local
+  nginx_logs:
     driver: local
 
 # 网络定义

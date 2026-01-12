@@ -30,118 +30,155 @@ sudo systemctl enable docker
 
 ---
 
-## 🚀 快速部署
+## 🏗️ 架构说明
 
-### 方式一：直接使用 Docker 镜像（推荐生产环境）
+### 服务架构
 
-#### 1. 本地打包并上传 jar 包
-
-```bash
-# 在本地开发环境打包
-mvn clean package -DskipTests
-
-# 上传 jar 包到服务器
-scp target/pregnancy-meal-assistant-1.0.0.jar user@your-server:/app/
+```
+Internet
+    ↓
+[Nginx:80] → 反向代理
+    ↓
+[App:8080] (Docker 内部网络)
+    ↓
+[MySQL:3306] (Docker 内部网络)
 ```
 
-#### 2. 在服务器上创建目录结构
+### 端口映射
 
-```bash
-mkdir -p /app/pregnancy-meal
-cd /app/pregnancy-meal
-```
-
-#### 3. 上传必要文件到服务器
-
-```bash
-# 上传 Dockerfile
-scp Dockerfile user@your-server:/app/pregnancy-meal/
-
-# 上传 .env 文件（需要提前配置；用于 app 容器环境变量）
-scp .env user@your-server:/app/pregnancy-meal/
-
-# 或者上传 docker-compose.yml
-scp docker-compose.yml user@your-server:/app/pregnancy-meal/
-```
-
-#### 4. 配置环境变量
-
-```bash
-cat > /app/pregnancy-meal/.env << 'EOF'
-# 应用数据库连接（方式一：假设你使用"外部/已存在"的 MySQL）
-DB_URL=jdbc:mysql://your-mysql-host:3306/pregnancy_meal?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-DB_USERNAME=app_user
-DB_PASSWORD=your_strong_app_password
-
-# 阿里云 AI 配置
-ALI_AI_KEY=your_dashscope_api_key
-
-# 微信小程序配置
-WX_MINIAPP_APPID=your_wechat_appid
-WX_MINIAPP_SECRET=your_wechat_secret
-
-# JWT 配置
-JWT_SECRET=your_jwt_secret_please_change
-JWT_EXPIRATION=604800000
-EOF
-```
-
-#### 5. 构建 Docker 镜像
-
-```bash
-cd /app/pregnancy-meal
-docker build -t pregnancy-app:1.0.0 .
-```
-
-#### 6. 运行容器
-
-```bash
-# 运行应用容器（假设 MySQL 已经运行）
-docker run -d \
-  --name pregnancy-app \
-  --restart always \
-  -p 8080:8080 \
-  --env-file .env \
-  -v /app/pregnancy-meal/logs:/app/logs \
-  pregnancy-app:1.0.0
-```
+| 服务 | 容器端口 | 宿主机端口 | 说明 |
+|------|----------|------------|------|
+| Nginx | 80 | 80 | HTTP 访问入口 |
+| App | 8080 | - | 内部网络，不直接暴露 |
+| MySQL | 3306 | 3306 | 数据库（可外网访问） |
 
 ---
 
-### 方式二：使用 Docker Compose（推荐包含数据库）
+## 🚀 快速部署
+
+### 方式一：使用 Docker Compose（推荐）
 
 #### 1. 上传文件到服务器
 
 ```bash
 # 创建目录
-mkdir -p /app/pregnancy-meal
-cd /app/pregnancy-meal
+mkdir -p ~/app/pregnancy-meal-assistant
+cd ~/app/pregnancy-meal-assistant
 
-# 上传以下文件
+# 上传以下文件（整个项目目录）
 # - docker-compose.yml
-# - .env
-# - target/*.jar (jar 包)
-# - target/classes/db/migration (MySQL 初始化脚本；仅在首次初始化数据卷时执行)
+# - Dockerfile
+# - .env.example
+# - nginx/
+# - src/
+# - pom.xml
+# - 其他项目文件
 ```
 
-#### 2. 启动所有服务
+#### 2. 配置环境变量
 
 ```bash
-cd /app/pregnancy-meal
-docker compose up -d
+# 复制环境变量模板
+cp .env.example .env
+
+# 编辑配置文件
+vim .env
 ```
 
-#### 3. 查看服务状态
+**必填配置项：**
 
 ```bash
-# 查看运行状态
+# MySQL 配置
+MYSQL_ROOT_PASSWORD=设置强密码
+MYSQL_USER=app_user
+MYSQL_PASSWORD=设置强密码
+
+# 阿里云 AI
+ALI_AI_KEY=your_dashscope_api_key
+
+# 微信小程序
+WX_MINIAPP_APPID=your_appid
+WX_MINIAPP_SECRET=your_secret
+
+# JWT 密钥
+JWT_SECRET=your_very_long_secret_key_at_least_32_chars
+```
+
+#### 3. 启动所有服务
+
+```bash
+# 构建并启动（会在容器内编译）
+docker compose up -d --build
+
+# 查看服务状态
 docker compose ps
 
 # 查看日志
-docker compose logs -f app
-
-# 查看所有服务日志
 docker compose logs -f
+```
+
+#### 4. 验证部署
+
+```bash
+# 测试 Nginx 代理
+curl http://localhost/api/v3/api-docs
+
+# 测试外网访问（在本地电脑执行）
+curl http://203.195.202.54/api/v3/api-docs
+
+# 查看容器健康状态
+docker compose ps
+```
+
+---
+
+### 方式二：单步部署（适合调试）
+
+#### 1. 构建应用镜像
+
+```bash
+cd ~/app/pregnancy-meal-assistant
+docker compose build app
+```
+
+#### 2. 启动数据库
+
+```bash
+docker compose up -d mysql
+```
+
+#### 3. 等待数据库就绪
+
+```bash
+# 查看数据库日志
+docker compose logs -f mysql
+
+# 看到 "ready for connections" 后按 Ctrl+C 退出
+```
+
+#### 4. 启动应用
+
+```bash
+docker compose up -d app
+```
+
+#### 5. 启动 Nginx
+
+```bash
+docker compose up -d nginx
+```
+
+#### 6. 验证服务
+
+```bash
+# 查看所有服务状态
+docker compose ps
+
+# 查看应用日志
+docker compose logs app | tail -50
+
+# 测试访问
+curl http://localhost/api/v3/api-docs
 ```
 
 ---
@@ -152,69 +189,96 @@ docker compose logs -f
 
 ```bash
 # 查看运行中的容器
-docker ps
+docker compose ps
 
-# 查看容器日志
-docker logs -f pregnancy-app
+# 查看所有服务日志
+docker compose logs -f
 
-# 进入容器内部
-docker exec -it pregnancy-app sh
+# 查看特定服务日志
+docker compose logs -f app
+docker compose logs -f nginx
+docker compose logs -f mysql
 
-# 停止容器
-docker stop pregnancy-app
+# 重启所有服务
+docker compose restart
 
-# 启动容器
-docker start pregnancy-app
+# 重启特定服务
+docker compose restart app
 
-# 重启容器
-docker restart pregnancy-app
-
-# 删除容器
-docker rm pregnancy-app
-
-# 强制删除运行中的容器
-docker rm -f pregnancy-app
-```
-
-### 镜像管理
-
-```bash
-# 查看本地镜像
-docker images
-
-# 删除镜像
-docker rmi pregnancy-app:1.0.0
-
-# 清理无用镜像
-docker image prune -a
-```
-
-### Docker Compose 命令
-
-```bash
-# 启动服务
-docker compose up -d
-
-# 停止服务
+# 停止所有服务
 docker compose down
 
 # 停止并删除数据卷（⚠️ 会删除数据）
 docker compose down -v
+```
 
-# 重启服务
-docker compose restart
+### 日志查看
 
-# 查看服务状态
-docker compose ps
+```bash
+# 应用日志
+docker compose logs app | tail -100
 
-# 查看日志
-docker compose logs -f [service_name]
+# Nginx 访问日志
+docker exec pregnancy-nginx tail -f /var/log/nginx/pregnancy-access.log
 
-# 重新构建镜像
-docker compose build --no-cache
+# Nginx 错误日志
+docker exec pregnancy-nginx tail -f /var/log/nginx/pregnancy-error.log
 
-# 更新并重启服务
-docker compose up -d --build
+# MySQL 日志
+docker compose logs mysql | tail -100
+```
+
+### 进入容器
+
+```bash
+# 进入应用容器
+docker exec -it pregnancy-app sh
+
+# 进入 Nginx 容器
+docker exec -it pregnancy-nginx sh
+
+# 进入 MySQL 容器
+docker exec -it pregnancy-mysql mysql -u app_user -p
+```
+
+### 数据库操作
+
+```bash
+# 连接数据库
+docker exec -it pregnancy-mysql mysql -u app_user -p pregnancy_meal
+
+# 备份数据库
+docker exec pregnancy-mysql mysqldump -u root -p pregnancy_meal > backup.sql
+
+# 恢复数据库
+docker exec -i pregnancy-mysql mysql -u root -p pregnancy_meal < backup.sql
+```
+
+---
+
+## 🌐 访问地址
+
+### 服务访问
+
+| 服务 | 内部地址 | 外网地址 |
+|------|----------|----------|
+| API 接口 | http://localhost/api | http://203.195.202.54/api |
+| Swagger 文档 | http://localhost/swagger-ui.html | http://203.195.202.54/swagger-ui.html |
+| OpenAPI JSON | http://localhost/api/v3/api-docs | http://203.195.202.54/api/v3/api-docs |
+| 数据库 | localhost:3306 | 203.195.202.54:3306 |
+
+### 数据库外网连接
+
+```bash
+# 使用 MySQL 客户端连接
+mysql -h 203.195.202.54 -P 3306 -u app_user -p
+
+# 或使用工具（Navicat、DBeaver 等）
+主机: 203.195.202.54
+端口: 3306
+用户: app_user
+密码: 您设置的密码
+数据库: pregnancy_meal
 ```
 
 ---
@@ -224,21 +288,26 @@ docker compose up -d --build
 ### 检查应用状态
 
 ```bash
-# 检查（示例）端点：OpenAPI 文档可用性
-curl http://localhost:8080/api/v3/api-docs
+# 检查 OpenAPI 文档
+curl http://localhost/api/v3/api-docs
 
-# 查看 Swagger 文档
-curl http://localhost:8080/api/swagger-ui.html
-```
+# 检查 Nginx 健康端点
+curl http://localhost/health
 
-### 检查容器健康状态
-
-```bash
 # 查看容器健康状态
 docker inspect --format='{{.State.Health.Status}}' pregnancy-app
+docker inspect --format='{{.State.Health.Status}}' pregnancy-nginx
+docker inspect --format='{{.State.Health.Status}}' pregnancy-mysql
+```
 
-# 查看详细健康检查日志
-docker inspect --format='{{json .State.Health}}' pregnancy-app | jq
+### 检查数据库连接
+
+```bash
+# 测试数据库连接
+docker exec pregnancy-mysql mysqladmin ping -h 127.0.0.1 -u root -p
+
+# 查看数据库连接数
+docker exec pregnancy-mysql mysql -u root -p -e "SHOW PROCESSLIST;"
 ```
 
 ---
@@ -249,101 +318,128 @@ docker inspect --format='{{json .State.Health}}' pregnancy-app | jq
 
 ```bash
 # 查看容器日志
-docker logs pregnancy-app
+docker compose logs app
+docker compose logs nginx
+docker compose logs mysql
 
 # 查看容器详细信息
 docker inspect pregnancy-app
 ```
 
-### 问题 2: 无法连接数据库
+### 问题 2: 无法访问应用
 
 ```bash
-# 检查 MySQL 容器状态
-docker ps | grep mysql
+# 检查容器状态
+docker compose ps
+
+# 检查 Nginx 配置
+docker exec pregnancy-nginx nginx -t
+
+# 重载 Nginx 配置
+docker exec pregnancy-nginx nginx -s reload
+```
+
+### 问题 3: 数据库连接失败
+
+```bash
+# 检查 MySQL 容器
+docker compose ps mysql
+
+# 查看 MySQL 日志
+docker compose logs mysql
 
 # 测试数据库连接
 docker exec -it pregnancy-mysql mysql -u app_user -p
 ```
 
-### 问题 3: 端口被占用
+### 问题 4: 端口被占用
 
 ```bash
 # 查看端口占用
-sudo netstat -tulpn | grep 8080
+sudo netstat -tulpn | grep -E '80|3306'
 
 # 修改 docker-compose.yml 中的端口映射
 ports:
-  - "8081:8080"  # 使用 8081 端口
-```
-
-### 问题 4: 内存不足
-
-```bash
-# 查看容器资源使用情况
-docker stats pregnancy-app
-
-# 调整 JVM 内存参数
-# 在 .env 或 docker-compose.yml 中修改 JAVA_OPTS
-JAVA_OPTS="-XX:MaxRAMPercentage=50.0 ..."  # 降低内存使用
+  - "8080:80"  # 使用其他端口
 ```
 
 ---
 
-## 🛡️ 生产环境建议
+## 🛡️ 安全建议
 
-### 1. 安全加固
+### 1. 数据库外网访问安全
 
-- ✅ 修改所有默认密码
-- ✅ 使用强密码策略
-- ✅ 限制容器资源使用
-- ✅ 配置防火墙规则
-- ✅ 定期更新镜像
+如果数据库需要外网访问，请务必：
 
-### 2. 资源限制
+- ✅ 使用强密码（至少 16 位，包含大小写字母、数字、特殊字符）
+- ✅ 配置防火墙规则，限制访问 IP
+- ✅ 定期更新密码
+- ✅ 启用 SSL/TLS 连接
 
-在 `docker-compose.yml` 中添加资源限制：
-
-```yaml
-services:
-  app:
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2G
-        reservations:
-          cpus: '1.0'
-          memory: 1G
-```
-
-### 3. 日志管理
-
-```yaml
-services:
-  app:
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-```
-
-### 4. 数据备份
+**配置防火墙白名单（Ubuntu）：**
 
 ```bash
-# 备份 MySQL 数据
-docker exec pregnancy-mysql mysqldump -u root -p pregnancy_meal > backup.sql
-
-# 恢复数据
-docker exec -i pregnancy-mysql mysql -u root -p pregnancy_meal < backup.sql
+# 仅允许特定 IP 访问数据库
+sudo ufw allow from YOUR_IP_ADDRESS to any port 3306
 ```
 
-### 5. 监控告警
+**配置防火墙白名单（CentOS）：**
 
-建议使用以下工具：
-- **Prometheus + Grafana**: 性能监控
-- **ELK Stack**: 日志分析
-- **Sentry**: 错误追踪
+```bash
+sudo firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="YOUR_IP_ADDRESS" port protocol="tcp" port="3306" accept'
+sudo firewall-cmd --reload
+```
+
+### 2. Nginx 安全加固
+
+已启用以下安全措施：
+
+- ✅ 隐藏版本号（server_tokens off）
+- ✅ 安全头配置（X-Frame-Options, X-Content-Type-Options 等）
+- ✅ 禁止访问隐藏文件
+
+### 3. 应用安全
+
+- ✅ 非 root 用户运行
+- ✅ 最小权限原则
+- ✅ 健康检查和自动重启
+
+---
+
+## 🔄 更新部署
+
+### 更新应用代码
+
+```bash
+# 1. 拉取最新代码
+git pull
+
+# 2. 重新构建并启动
+docker compose up -d --build app
+
+# 3. 查看日志
+docker compose logs -f app
+```
+
+### 零停机更新
+
+```bash
+# 使用滚动更新
+docker compose up -d --no-deps --build app
+```
+
+### 更新 Nginx 配置
+
+```bash
+# 1. 修改配置文件
+vim nginx/conf.d/app.conf
+
+# 2. 测试配置
+docker exec pregnancy-nginx nginx -t
+
+# 3. 重载配置
+docker exec pregnancy-nginx nginx -s reload
+```
 
 ---
 
@@ -351,11 +447,8 @@ docker exec -i pregnancy-mysql mysql -u root -p pregnancy_meal < backup.sql
 
 | 变量名 | 说明 | 默认值 | 必填 |
 |--------|------|--------|------|
-| DB_URL | 应用数据库连接串（方式一 docker run 使用） | - | ❌ |
-| DB_USERNAME | 应用数据库用户（方式一 docker run 使用） | - | ❌ |
-| DB_PASSWORD | 应用数据库密码（方式一 docker run 使用） | - | ❌ |
 | MYSQL_ROOT_PASSWORD | MySQL root 密码 | - | ✅ |
-| MYSQL_DATABASE | 数据库名称 | pregnancy_meal | ✅ |
+| MYSQL_DATABASE | 数据库名称 | pregnancy_meal | ❌ |
 | MYSQL_USER | 应用数据库用户 | app_user | ✅ |
 | MYSQL_PASSWORD | 应用数据库密码 | - | ✅ |
 | ALI_AI_KEY | 阿里云 DashScope API Key | - | ✅ |
@@ -367,31 +460,50 @@ docker exec -i pregnancy-mysql mysql -u root -p pregnancy_meal < backup.sql
 
 ---
 
-## 🔄 更新部署
+## 🌍 生产环境建议
 
-### 更新应用版本
+### 1. 启用 HTTPS
 
-```bash
-# 1. 停止并删除旧容器
-docker compose down
-
-# 2. 删除旧镜像
-docker rmi pregnancy-app:1.0.0
-
-# 3. 上传新的 jar 包
-# 4. 重新构建镜像
-docker build -t pregnancy-app:1.0.0 .
-
-# 5. 启动新版本
-docker compose up -d
-```
-
-### 零停机更新（推荐）
+使用 Let's Encrypt 免费证书：
 
 ```bash
-# 使用滚动更新策略
-docker compose up -d --no-deps --build app
+# 安装 certbot
+sudo apt install certbot
+
+# 生成证书
+sudo certbot certonly --standalone -d your-domain.com
+
+# 修改 nginx/conf.d/app.conf，添加 HTTPS 配置
+# （参考 nginx/ssl/example.conf）
 ```
+
+### 2. 配置域名
+
+修改 `nginx/conf.d/app.conf`：
+
+```nginx
+server_name your-domain.com;  # 替换为您的域名
+```
+
+### 3. 日志管理
+
+```yaml
+# 在 docker-compose.yml 中添加
+services:
+  nginx:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+### 4. 监控告警
+
+建议使用：
+- **Prometheus + Grafana**: 性能监控
+- **ELK Stack**: 日志分析
+- **Sentry**: 错误追踪
 
 ---
 
@@ -401,10 +513,11 @@ docker compose up -d --no-deps --build app
 
 1. Docker 版本：`docker --version`
 2. Docker Compose 版本：`docker compose version`
-3. 容器日志：`docker logs pregnancy-app`
-4. 系统日志：`journalctl -u docker`
+3. 容器状态：`docker compose ps`
+4. 容器日志：`docker compose logs`
+5. 系统日志：`journalctl -u docker`
 
 ---
 
 **生成时间**: 2026-01-12
-**文档版本**: 1.0.0
+**文档版本**: 2.0.0 (包含 Nginx 反向代理)
