@@ -136,6 +136,9 @@ public class AiRequestAdvisor {
             responseContent = response.getResult().getOutput().getText();
         }
 
+        // 提取 Token 使用量
+        extractTokenUsage(response, context);
+
         // 记录响应信息（DEBUG 级别）
         if (log.isDebugEnabled()) {
             log.debug("=".repeat(80));
@@ -146,7 +149,8 @@ public class AiRequestAdvisor {
             log.debug("模型名称: {}", context.getModelName());
             log.debug("耗时: {} ms", duration);
             log.debug("响应长度: {} 字符", responseContent.length());
-            log.debug("Token 使用: {}", response != null ? response.getMetadata() : "N/A");
+            log.debug("Token 使用: 输入={}, 输出={}, 总计={}", 
+                    context.getInputTokens(), context.getOutputTokens(), context.getTotalTokens());
             log.debug("-".repeat(80));
             log.debug("AI 响应内容:\n{}", responseContent);
             log.debug("=".repeat(80));
@@ -180,6 +184,8 @@ public class AiRequestAdvisor {
         }
 
         StringBuilder fullResponse = new StringBuilder();
+        // 用于保存最后一个 ChatResponse（包含完整的 Token 信息）
+        final ChatResponse[] lastResponse = new ChatResponse[1];
 
         return responseFlux
                 .doOnNext(chatResponse -> {
@@ -192,6 +198,8 @@ public class AiRequestAdvisor {
                             log.debug("收到流式 chunk: {}", content);
                         }
                     }
+                    // 保存最后一个响应（包含完整的 Token 信息）
+                    lastResponse[0] = chatResponse;
                 })
                 .doOnComplete(() -> {
                     // 流式响应完成
@@ -203,6 +211,9 @@ public class AiRequestAdvisor {
                             ? Duration.between(context.getRequestTime(), now).toMillis()
                             : 0;
 
+                    // 从最后一个响应中提取 Token 使用量
+                    extractTokenUsage(lastResponse[0], context);
+
                     if (log.isDebugEnabled()) {
                         log.debug("=".repeat(80));
                         log.debug("AI 流式响应完成 [{}]", timestamp);
@@ -212,6 +223,8 @@ public class AiRequestAdvisor {
                         log.debug("模型名称: {}", context.getModelName());
                         log.debug("耗时: {} ms", duration);
                         log.debug("完整响应长度: {} 字符", fullResponse.length());
+                        log.debug("Token 使用: 输入={}, 输出={}, 总计={}", 
+                                context.getInputTokens(), context.getOutputTokens(), context.getTotalTokens());
                         log.debug("-".repeat(80));
                         log.debug("完整响应内容:\n{}", fullResponse);
                         log.debug("=".repeat(80));
@@ -321,6 +334,51 @@ public class AiRequestAdvisor {
      */
     public static Map<String, Object> wrapContext(AiAdvisorContext context) {
         return Map.of(CONTEXT_KEY, context);
+    }
+
+    /**
+     * 从 ChatResponse 提取 Token 使用量
+     * <p>提取输入、输出和总 Token 数量，并保存到上下文中</p>
+     *
+     * @param response AI 响应对象
+     * @param context  业务上下文
+     */
+    private void extractTokenUsage(ChatResponse response, AiAdvisorContext context) {
+        if (response == null || response.getMetadata() == null) {
+            log.debug("ChatResponse 或 Metadata 为空，无法提取 Token 使用量");
+            return;
+        }
+
+        try {
+            var usage = response.getMetadata().getUsage();
+            if (usage != null) {
+                // 提取 Token 数据（Spring AI 1.1.0 返回 Integer）
+                Integer promptTokens = usage.getPromptTokens();
+                Integer completionTokens = usage.getCompletionTokens();
+                Integer totalTokens = usage.getTotalTokens();
+
+                // 保存到上下文
+                if (promptTokens != null) {
+                    context.setInputTokens(promptTokens);
+                }
+                if (completionTokens != null) {
+                    context.setOutputTokens(completionTokens);
+                }
+                if (totalTokens != null) {
+                    context.setTotalTokens(totalTokens);
+                } else if (promptTokens != null && completionTokens != null) {
+                    // 如果没有提供 totalTokens，自行计算
+                    context.setTotalTokens(promptTokens + completionTokens);
+                }
+
+                log.debug("成功提取 Token 使用量: 输入={}, 输出={}, 总计={}", 
+                        context.getInputTokens(), context.getOutputTokens(), context.getTotalTokens());
+            } else {
+                log.debug("Usage 信息为空，无法提取 Token 使用量");
+            }
+        } catch (Exception e) {
+            log.warn("提取 Token 使用量失败: {}", e.getMessage());
+        }
     }
 }
 

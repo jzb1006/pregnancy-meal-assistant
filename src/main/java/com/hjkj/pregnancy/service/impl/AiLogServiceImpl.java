@@ -39,13 +39,14 @@ public class AiLogServiceImpl implements AiLogService {
                 .duration(context.getDuration())
                 .isSuccess(context.getErrorMessage() == null)
                 .errorMessage(context.getErrorMessage())
-                .modelName(context.getModelName() != null ? context.getModelName() : "unknown") // 使用真实的模型名称
+                .modelName(context.getModelName() != null ? context.getModelName() : "unknown")
+                .tokenUsage(context.getTotalTokens()) // 保存 Token 使用量
                 .createdAt(context.getRequestTime())
                 .build();
 
             AiRequestLog saved = aiRequestLogRepository.save(logEntity);
-            log.info("AI请求日志已保存: logId={}, userId={}, scenario={}", 
-                saved.getId(), saved.getUserId(), saved.getScenario());
+            log.info("AI请求日志已保存: logId={}, userId={}, scenario={}, tokens={}", 
+                saved.getId(), saved.getUserId(), saved.getScenario(), saved.getTokenUsage());
             
             return saved;
             

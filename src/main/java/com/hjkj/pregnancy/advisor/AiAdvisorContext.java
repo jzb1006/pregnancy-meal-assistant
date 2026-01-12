@@ -100,6 +100,24 @@ public class AiAdvisorContext implements Serializable {
     private Long duration;
 
     /**
+     * 输入 Token 数量
+     * <p>由 Advisor 从 ChatResponse 自动提取</p>
+     */
+    private Integer inputTokens;
+
+    /**
+     * 输出 Token 数量
+     * <p>由 Advisor 从 ChatResponse 自动提取</p>
+     */
+    private Integer outputTokens;
+
+    /**
+     * 总 Token 数量
+     * <p>由 Advisor 从 ChatResponse 自动提取，等于 inputTokens + outputTokens</p>
+     */
+    private Integer totalTokens;
+
+    /**
      * 扩展信息
      * <p>用于传递额外的业务信息</p>
      */
